@@ -92,6 +92,7 @@
 			[b]Note:[/b] This returns a copy of the [PackedVector2Array] rather than a reference.
 		</member>
 		<member name="polygons" type="Array" setter="set_polygons" getter="get_polygons" default="[]">
+			The polygon's list of polygons. Every polygon is represented by a [PackedInt32Array] where each [int] is an index to a point in [code]polygon[/code]. If empty, this property will be ignored and the polygon will be composed of all points in [code]polygon[/code].
 		</member>
 		<member name="skeleton" type="NodePath" setter="set_skeleton" getter="get_skeleton" default="NodePath(&quot;&quot;)">
 		</member>
