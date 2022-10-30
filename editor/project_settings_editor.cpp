@@ -35,6 +35,8 @@
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
+#include "scene/gui/check_button.h"
 #include "servers/movie_writer/movie_writer.h"
 
 ProjectSettingsEditor *ProjectSettingsEditor::singleton = nullptr;
@@ -69,6 +71,11 @@ void ProjectSettingsEditor::queue_save() {
 
 void ProjectSettingsEditor::set_plugins_page() {
 	tab_container->set_current_tab(tab_container->get_tab_idx_from_control(plugin_settings));
+}
+
+void ProjectSettingsEditor::set_general_page(const String &p_category) {
+	tab_container->set_current_tab(tab_container->get_tab_idx_from_control(general_editor));
+	general_settings_inspector->set_current_section(p_category);
 }
 
 void ProjectSettingsEditor::update_plugins() {
@@ -238,7 +245,7 @@ void ProjectSettingsEditor::shortcut_input(const Ref<InputEvent> &p_event) {
 			handled = true;
 		}
 
-		if (k->get_keycode_with_modifiers() == (KeyModifierMask::CMD | Key::F)) {
+		if (k->is_match(InputEventKey::create_reference(KeyModifierMask::CMD_OR_CTRL | Key::F))) {
 			search_box->grab_focus();
 			search_box->select_all();
 			handled = true;
@@ -355,12 +362,12 @@ void ProjectSettingsEditor::_action_edited(const String &p_name, const Dictionar
 
 	} else {
 		// Events changed
-		int event_count = ((Array)p_action["events"]).size();
+		int act_event_count = ((Array)p_action["events"]).size();
 		int old_event_count = ((Array)old_val["events"]).size();
 
-		if (event_count == old_event_count) {
+		if (act_event_count == old_event_count) {
 			undo_redo->create_action(TTR("Edit Input Action Event"));
-		} else if (event_count > old_event_count) {
+		} else if (act_event_count > old_event_count) {
 			undo_redo->create_action(TTR("Add Input Action Event"));
 		} else {
 			undo_redo->create_action(TTR("Remove Input Action Event"));
@@ -520,7 +527,7 @@ void ProjectSettingsEditor::_update_action_map_editor() {
 void ProjectSettingsEditor::_update_theme() {
 	search_box->set_right_icon(get_theme_icon(SNAME("Search"), SNAME("EditorIcons")));
 	restart_close_button->set_icon(get_theme_icon(SNAME("Close"), SNAME("EditorIcons")));
-	restart_container->add_theme_style_override("panel", get_theme_stylebox(SNAME("bg"), SNAME("Tree")));
+	restart_container->add_theme_style_override("panel", get_theme_stylebox(SNAME("panel"), SNAME("Tree")));
 	restart_icon->set_texture(get_theme_icon(SNAME("StatusWarning"), SNAME("EditorIcons")));
 	restart_label->add_theme_color_override("font_color", get_theme_color(SNAME("warning_color"), SNAME("Editor")));
 
@@ -566,7 +573,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	set_title(TTR("Project Settings (project.godot)"));
 
 	ps = ProjectSettings::get_singleton();
-	undo_redo = &p_data->get_undo_redo();
+	undo_redo = p_data->get_undo_redo();
 	data = p_data;
 
 	tab_container = memnew(TabContainer);
@@ -574,7 +581,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	tab_container->set_theme_type_variation("TabContainerOdd");
 	add_child(tab_container);
 
-	VBoxContainer *general_editor = memnew(VBoxContainer);
+	general_editor = memnew(VBoxContainer);
 	general_editor->set_name(TTR("General"));
 	general_editor->set_alignment(BoxContainer::ALIGNMENT_BEGIN);
 	general_editor->set_v_size_flags(Control::SIZE_EXPAND_FILL);
@@ -625,7 +632,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	custom_properties->add_child(del_button);
 
 	general_settings_inspector = memnew(SectionedInspector);
-	general_settings_inspector->get_inspector()->set_undo_redo(EditorNode::get_singleton()->get_undo_redo());
+	general_settings_inspector->get_inspector()->set_undo_redo(EditorNode::get_undo_redo());
 	general_settings_inspector->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	general_settings_inspector->register_search_box(search_box);
 	general_settings_inspector->get_inspector()->set_use_filter(true);

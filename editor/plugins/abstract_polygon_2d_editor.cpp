@@ -36,6 +36,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "scene/gui/separator.h"
 
 bool AbstractPolygon2DEditor::Vertex::operator==(const AbstractPolygon2DEditor::Vertex &p_vertex) const {
@@ -234,13 +235,13 @@ void AbstractPolygon2DEditor::disable_polygon_editing(bool p_disable, String p_r
 	button_delete->set_disabled(p_disable);
 
 	if (p_disable) {
-		button_create->set_tooltip(p_reason);
-		button_edit->set_tooltip(p_reason);
-		button_delete->set_tooltip(p_reason);
+		button_create->set_tooltip_text(p_reason);
+		button_edit->set_tooltip_text(p_reason);
+		button_delete->set_tooltip_text(p_reason);
 	} else {
-		button_create->set_tooltip(TTR("Create points."));
-		button_edit->set_tooltip(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
-		button_delete->set_tooltip(TTR("Erase points."));
+		button_create->set_tooltip_text(TTR("Create points."));
+		button_edit->set_tooltip_text(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
+		button_delete->set_tooltip_text(TTR("Erase points."));
 	}
 }
 
@@ -560,8 +561,8 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			const Vector2 p = (vertex == edited_point) ? edited_point.pos : (points[i] + offset);
 			const Vector2 point = xform.xform(p);
 
-			const Color modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
-			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, modulate);
+			const Color overlay_modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
+			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, overlay_modulate);
 
 			if (vertex == hover_point) {
 				Ref<Font> font = get_theme_font(SNAME("font"), SNAME("Label"));

@@ -35,6 +35,7 @@
 #include "editor/editor_paths.h"
 #include "editor/editor_resource_preview.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "editor/export/editor_export.h"
 #include "editor/filesystem_dock.h"
 #include "editor/plugins/canvas_item_editor_plugin.h"
@@ -47,7 +48,7 @@
 #include "scene/gui/popup_menu.h"
 #include "servers/rendering_server.h"
 
-Array EditorInterface::_make_mesh_previews(const Array &p_meshes, int p_preview_size) {
+TypedArray<Texture2D> EditorInterface::_make_mesh_previews(const TypedArray<Mesh> &p_meshes, int p_preview_size) {
 	Vector<Ref<Mesh>> meshes;
 
 	for (int i = 0; i < p_meshes.size(); i++) {
@@ -55,7 +56,7 @@ Array EditorInterface::_make_mesh_previews(const Array &p_meshes, int p_preview_
 	}
 
 	Vector<Ref<Texture2D>> textures = make_mesh_previews(meshes, nullptr, p_preview_size);
-	Array ret;
+	TypedArray<Texture2D> ret;
 	for (int i = 0; i < textures.size(); i++) {
 		ret.push_back(textures[i]);
 	}
@@ -155,8 +156,8 @@ void EditorInterface::set_main_screen_editor(const String &p_name) {
 	EditorNode::get_singleton()->select_editor_by_name(p_name);
 }
 
-Control *EditorInterface::get_editor_main_control() {
-	return EditorNode::get_singleton()->get_main_control();
+VBoxContainer *EditorInterface::get_editor_main_screen() {
+	return EditorNode::get_singleton()->get_main_screen_control();
 }
 
 void EditorInterface::edit_resource(const Ref<Resource> &p_resource) {
@@ -215,8 +216,8 @@ Node *EditorInterface::get_edited_scene_root() {
 	return EditorNode::get_singleton()->get_edited_scene();
 }
 
-Array EditorInterface::get_open_scenes() const {
-	Array ret;
+PackedStringArray EditorInterface::get_open_scenes() const {
+	PackedStringArray ret;
 	Vector<EditorData::EditedScene> scenes = EditorNode::get_editor_data().get_edited_scenes();
 
 	int scns_amount = scenes.size();
@@ -312,6 +313,13 @@ void EditorInterface::set_distraction_free_mode(bool p_enter) {
 	EditorNode::get_singleton()->set_distraction_free_mode(p_enter);
 }
 
+void EditorInterface::restart_editor(bool p_save) {
+	if (p_save) {
+		EditorNode::get_singleton()->save_all_scenes();
+	}
+	EditorNode::get_singleton()->restart_editor();
+}
+
 bool EditorInterface::is_distraction_free_mode_enabled() const {
 	return EditorNode::get_singleton()->is_distraction_free_mode_enabled();
 }
@@ -344,7 +352,7 @@ void EditorInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_edited_scene_root"), &EditorInterface::get_edited_scene_root);
 	ClassDB::bind_method(D_METHOD("get_resource_previewer"), &EditorInterface::get_resource_previewer);
 	ClassDB::bind_method(D_METHOD("get_resource_filesystem"), &EditorInterface::get_resource_file_system);
-	ClassDB::bind_method(D_METHOD("get_editor_main_control"), &EditorInterface::get_editor_main_control);
+	ClassDB::bind_method(D_METHOD("get_editor_main_screen"), &EditorInterface::get_editor_main_screen);
 	ClassDB::bind_method(D_METHOD("make_mesh_previews", "meshes", "preview_size"), &EditorInterface::_make_mesh_previews);
 	ClassDB::bind_method(D_METHOD("select_file", "file"), &EditorInterface::select_file);
 	ClassDB::bind_method(D_METHOD("get_selected_path"), &EditorInterface::get_selected_path);
@@ -360,6 +368,7 @@ void EditorInterface::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("save_scene"), &EditorInterface::save_scene);
 	ClassDB::bind_method(D_METHOD("save_scene_as", "path", "with_preview"), &EditorInterface::save_scene_as, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("restart_editor", "save"), &EditorInterface::restart_editor, DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("set_main_screen_editor", "name"), &EditorInterface::set_main_screen_editor);
 	ClassDB::bind_method(D_METHOD("set_distraction_free_mode", "enter"), &EditorInterface::set_distraction_free_mode);
@@ -561,7 +570,7 @@ void EditorPlugin::notify_resource_saved(const Ref<Resource> &p_resource) {
 }
 
 bool EditorPlugin::forward_canvas_gui_input(const Ref<InputEvent> &p_event) {
-	bool success;
+	bool success = false;
 	if (GDVIRTUAL_CALL(_forward_canvas_gui_input, p_event, success)) {
 		return success;
 	}
@@ -590,13 +599,13 @@ int EditorPlugin::update_overlays() const {
 		return count;
 	} else {
 		// This will update the normal viewport itself as well
-		CanvasItemEditor::get_singleton()->get_viewport_control()->update();
+		CanvasItemEditor::get_singleton()->get_viewport_control()->queue_redraw();
 		return 1;
 	}
 }
 
-EditorPlugin::AfterGUIInput EditorPlugin::forward_spatial_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) {
-	int success;
+EditorPlugin::AfterGUIInput EditorPlugin::forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) {
+	int success = EditorPlugin::AFTER_GUI_INPUT_PASS;
 
 	if (GDVIRTUAL_CALL(_forward_3d_gui_input, p_camera, p_event, success)) {
 		return static_cast<EditorPlugin::AfterGUIInput>(success);
@@ -605,11 +614,11 @@ EditorPlugin::AfterGUIInput EditorPlugin::forward_spatial_gui_input(Camera3D *p_
 	return EditorPlugin::AFTER_GUI_INPUT_PASS;
 }
 
-void EditorPlugin::forward_spatial_draw_over_viewport(Control *p_overlay) {
+void EditorPlugin::forward_3d_draw_over_viewport(Control *p_overlay) {
 	GDVIRTUAL_CALL(_forward_3d_draw_over_viewport, p_overlay);
 }
 
-void EditorPlugin::forward_spatial_force_draw_over_viewport(Control *p_overlay) {
+void EditorPlugin::forward_3d_force_draw_over_viewport(Control *p_overlay) {
 	GDVIRTUAL_CALL(_forward_3d_force_draw_over_viewport, p_overlay);
 }
 
@@ -653,7 +662,7 @@ void EditorPlugin::edit(Object *p_object) {
 }
 
 bool EditorPlugin::handles(Object *p_object) const {
-	bool success;
+	bool success = false;
 	if (GDVIRTUAL_CALL(_handles, p_object, success)) {
 		return success;
 	}
@@ -744,12 +753,12 @@ void EditorPlugin::remove_export_plugin(const Ref<EditorExportPlugin> &p_exporte
 	EditorExport::get_singleton()->remove_export_plugin(p_exporter);
 }
 
-void EditorPlugin::add_spatial_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin) {
+void EditorPlugin::add_node_3d_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin) {
 	ERR_FAIL_COND(!p_gizmo_plugin.is_valid());
 	Node3DEditor::get_singleton()->add_gizmo_plugin(p_gizmo_plugin);
 }
 
-void EditorPlugin::remove_spatial_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin) {
+void EditorPlugin::remove_node_3d_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin) {
 	ERR_FAIL_COND(!p_gizmo_plugin.is_valid());
 	Node3DEditor::get_singleton()->remove_gizmo_plugin(p_gizmo_plugin);
 }
@@ -885,7 +894,7 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("make_bottom_panel_item_visible", "item"), &EditorPlugin::make_bottom_panel_item_visible);
 	ClassDB::bind_method(D_METHOD("hide_bottom_panel"), &EditorPlugin::hide_bottom_panel);
 
-	ClassDB::bind_method(D_METHOD("get_undo_redo"), &EditorPlugin::_get_undo_redo);
+	ClassDB::bind_method(D_METHOD("get_undo_redo"), &EditorPlugin::get_undo_redo);
 	ClassDB::bind_method(D_METHOD("add_undo_redo_inspector_hook_callback", "callable"), &EditorPlugin::add_undo_redo_inspector_hook_callback);
 	ClassDB::bind_method(D_METHOD("remove_undo_redo_inspector_hook_callback", "callable"), &EditorPlugin::remove_undo_redo_inspector_hook_callback);
 	ClassDB::bind_method(D_METHOD("queue_save_layout"), &EditorPlugin::queue_save_layout);
@@ -899,8 +908,8 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_scene_post_import_plugin", "scene_import_plugin"), &EditorPlugin::remove_scene_post_import_plugin);
 	ClassDB::bind_method(D_METHOD("add_export_plugin", "plugin"), &EditorPlugin::add_export_plugin);
 	ClassDB::bind_method(D_METHOD("remove_export_plugin", "plugin"), &EditorPlugin::remove_export_plugin);
-	ClassDB::bind_method(D_METHOD("add_spatial_gizmo_plugin", "plugin"), &EditorPlugin::add_spatial_gizmo_plugin);
-	ClassDB::bind_method(D_METHOD("remove_spatial_gizmo_plugin", "plugin"), &EditorPlugin::remove_spatial_gizmo_plugin);
+	ClassDB::bind_method(D_METHOD("add_node_3d_gizmo_plugin", "plugin"), &EditorPlugin::add_node_3d_gizmo_plugin);
+	ClassDB::bind_method(D_METHOD("remove_node_3d_gizmo_plugin", "plugin"), &EditorPlugin::remove_node_3d_gizmo_plugin);
 	ClassDB::bind_method(D_METHOD("add_inspector_plugin", "plugin"), &EditorPlugin::add_inspector_plugin);
 	ClassDB::bind_method(D_METHOD("remove_inspector_plugin", "plugin"), &EditorPlugin::remove_inspector_plugin);
 	ClassDB::bind_method(D_METHOD("set_input_event_forwarding_always_enabled"), &EditorPlugin::set_input_event_forwarding_always_enabled);
@@ -963,6 +972,14 @@ void EditorPlugin::_bind_methods() {
 	BIND_ENUM_CONSTANT(DOCK_SLOT_RIGHT_UR);
 	BIND_ENUM_CONSTANT(DOCK_SLOT_RIGHT_BR);
 	BIND_ENUM_CONSTANT(DOCK_SLOT_MAX);
+
+	BIND_ENUM_CONSTANT(AFTER_GUI_INPUT_PASS);
+	BIND_ENUM_CONSTANT(AFTER_GUI_INPUT_STOP);
+	BIND_ENUM_CONSTANT(AFTER_GUI_INPUT_CUSTOM);
+}
+
+Ref<EditorUndoRedoManager> EditorPlugin::get_undo_redo() {
+	return undo_redo;
 }
 
 EditorPluginCreateFunc EditorPlugins::creation_funcs[MAX_CREATE_FUNCS];

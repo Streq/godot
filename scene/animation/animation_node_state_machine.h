@@ -49,11 +49,11 @@ private:
 	bool auto_advance = false;
 	StringName advance_condition;
 	StringName advance_condition_name;
-	float xfade = 0.0;
+	float xfade_time = 0.0;
+	Ref<Curve> xfade_curve;
 	bool disabled = false;
 	int priority = 1;
 	String advance_expression;
-	NodePath advance_expression_base_node;
 
 	friend class AnimationNodeStateMachinePlayback;
 	Ref<Expression> expression;
@@ -76,11 +76,11 @@ public:
 	void set_advance_expression(const String &p_expression);
 	String get_advance_expression() const;
 
-	void set_advance_expression_base_node(const NodePath &p_expression_base_node);
-	NodePath get_advance_expression_base_node() const;
-
 	void set_xfade_time(float p_xfade);
 	float get_xfade_time() const;
+
+	void set_xfade_curve(const Ref<Curve> &p_curve);
+	Ref<Curve> get_xfade_curve() const;
 
 	void set_disabled(bool p_disabled);
 	bool is_disabled() const;
@@ -117,6 +117,7 @@ class AnimationNodeStateMachinePlayback : public Resource {
 
 	StringName current;
 	Transition current_transition;
+	Ref<Curve> current_curve;
 	bool force_auto_advance = false;
 
 	StringName fading_from;

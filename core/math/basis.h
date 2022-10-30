@@ -134,6 +134,7 @@ struct _NO_DISCARD_ Basis {
 	}
 
 	bool is_equal_approx(const Basis &p_basis) const;
+	bool is_finite() const;
 
 	bool operator==(const Basis &p_matrix) const;
 	bool operator!=(const Basis &p_matrix) const;
@@ -148,9 +149,6 @@ struct _NO_DISCARD_ Basis {
 	_FORCE_INLINE_ Basis operator-(const Basis &p_matrix) const;
 	_FORCE_INLINE_ void operator*=(const real_t p_val);
 	_FORCE_INLINE_ Basis operator*(const real_t p_val) const;
-
-	int get_orthogonal_index() const;
-	void set_orthogonal_index(int p_index);
 
 	bool is_orthogonal() const;
 	bool is_diagonal() const;
@@ -241,10 +239,8 @@ struct _NO_DISCARD_ Basis {
 	Basis(const Vector3 &p_axis, real_t p_angle, const Vector3 &p_scale) { set_axis_angle_scale(p_axis, p_angle, p_scale); }
 	static Basis from_scale(const Vector3 &p_scale);
 
-	_FORCE_INLINE_ Basis(const Vector3 &row0, const Vector3 &row1, const Vector3 &row2) {
-		rows[0] = row0;
-		rows[1] = row1;
-		rows[2] = row2;
+	_FORCE_INLINE_ Basis(const Vector3 &p_x_axis, const Vector3 &p_y_axis, const Vector3 &p_z_axis) {
+		set_columns(p_x_axis, p_y_axis, p_z_axis);
 	}
 
 	_FORCE_INLINE_ Basis() {}

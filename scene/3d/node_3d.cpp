@@ -253,9 +253,7 @@ Vector3 Node3D::get_global_rotation() const {
 
 void Node3D::set_global_rotation(const Vector3 &p_euler_rad) {
 	Transform3D transform = get_global_transform();
-	Basis new_basis = transform.get_basis();
-	new_basis.set_euler(p_euler_rad);
-	transform.set_basis(new_basis);
+	transform.basis = Basis::from_euler(p_euler_rad);
 	set_global_transform(transform);
 }
 
@@ -561,8 +559,8 @@ void Node3D::clear_gizmos() {
 #endif
 }
 
-Array Node3D::get_gizmos_bind() const {
-	Array ret;
+TypedArray<Node3DGizmo> Node3D::get_gizmos_bind() const {
+	TypedArray<Node3DGizmo> ret;
 
 #ifdef TOOLS_ENABLED
 	for (int i = 0; i < data.gizmos.size(); i++) {
@@ -786,14 +784,15 @@ void Node3D::set_identity() {
 }
 
 void Node3D::look_at(const Vector3 &p_target, const Vector3 &p_up) {
+	ERR_FAIL_COND_MSG(!is_inside_tree(), "Node not inside tree. Use look_at_from_position() instead.");
 	Vector3 origin = get_global_transform().origin;
 	look_at_from_position(origin, p_target, p_up);
 }
 
 void Node3D::look_at_from_position(const Vector3 &p_pos, const Vector3 &p_target, const Vector3 &p_up) {
 	ERR_FAIL_COND_MSG(p_pos.is_equal_approx(p_target), "Node origin and target are in the same position, look_at() failed.");
-	ERR_FAIL_COND_MSG(p_up.is_equal_approx(Vector3()), "The up vector can't be zero, look_at() failed.");
-	ERR_FAIL_COND_MSG(p_up.cross(p_target - p_pos).is_equal_approx(Vector3()), "Up vector and direction between node origin and target are aligned, look_at() failed.");
+	ERR_FAIL_COND_MSG(p_up.is_zero_approx(), "The up vector can't be zero, look_at() failed.");
+	ERR_FAIL_COND_MSG(p_up.cross(p_target - p_pos).is_zero_approx(), "Up vector and direction between node origin and target are aligned, look_at() failed.");
 
 	Transform3D lookat = Transform3D(Basis::looking_at(p_target - p_pos, p_up), p_pos);
 	Vector3 original_scale = get_scale();
@@ -879,21 +878,21 @@ NodePath Node3D::get_visibility_parent() const {
 	return visibility_parent_path;
 }
 
-void Node3D::_validate_property(PropertyInfo &property) const {
-	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_BASIS && property.name == "basis") {
-		property.usage = 0;
+void Node3D::_validate_property(PropertyInfo &p_property) const {
+	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_BASIS && p_property.name == "basis") {
+		p_property.usage = 0;
 	}
-	if (data.rotation_edit_mode == ROTATION_EDIT_MODE_BASIS && property.name == "scale") {
-		property.usage = 0;
+	if (data.rotation_edit_mode == ROTATION_EDIT_MODE_BASIS && p_property.name == "scale") {
+		p_property.usage = 0;
 	}
-	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_QUATERNION && property.name == "quaternion") {
-		property.usage = 0;
+	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_QUATERNION && p_property.name == "quaternion") {
+		p_property.usage = 0;
 	}
-	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_EULER && property.name == "rotation") {
-		property.usage = 0;
+	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_EULER && p_property.name == "rotation") {
+		p_property.usage = 0;
 	}
-	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_EULER && property.name == "rotation_order") {
-		property.usage = 0;
+	if (data.rotation_edit_mode != ROTATION_EDIT_MODE_EULER && p_property.name == "rotation_order") {
+		p_property.usage = 0;
 	}
 }
 
@@ -1037,6 +1036,7 @@ void Node3D::_bind_methods() {
 	BIND_CONSTANT(NOTIFICATION_ENTER_WORLD);
 	BIND_CONSTANT(NOTIFICATION_EXIT_WORLD);
 	BIND_CONSTANT(NOTIFICATION_VISIBILITY_CHANGED);
+	BIND_CONSTANT(NOTIFICATION_LOCAL_TRANSFORM_CHANGED);
 
 	BIND_ENUM_CONSTANT(ROTATION_EDIT_MODE_EULER);
 	BIND_ENUM_CONSTANT(ROTATION_EDIT_MODE_QUATERNION);
@@ -1052,9 +1052,9 @@ void Node3D::_bind_methods() {
 	ADD_GROUP("Transform", "");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "transform", PROPERTY_HINT_NONE, "suffix:m", PROPERTY_USAGE_NO_EDITOR), "set_transform", "get_transform");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM3D, "global_transform", PROPERTY_HINT_NONE, "suffix:m", PROPERTY_USAGE_NONE), "set_global_transform", "get_global_transform");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position", PROPERTY_HINT_RANGE, "-99999,99999,0.001,or_greater,or_lesser,no_slider,suffix:m", PROPERTY_USAGE_EDITOR), "set_position", "get_position");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "rotation", PROPERTY_HINT_RANGE, "-360,360,0.1,or_lesser,or_greater,radians", PROPERTY_USAGE_EDITOR), "set_rotation", "get_rotation");
-	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "quaternion", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_quaternion", "get_quaternion");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position", PROPERTY_HINT_RANGE, "-99999,99999,0.001,or_greater,or_less,hide_slider,suffix:m", PROPERTY_USAGE_EDITOR), "set_position", "get_position");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "rotation", PROPERTY_HINT_RANGE, "-360,360,0.1,or_less,or_greater,radians", PROPERTY_USAGE_EDITOR), "set_rotation", "get_rotation");
+	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "quaternion", PROPERTY_HINT_HIDE_QUATERNION_EDIT, "", PROPERTY_USAGE_EDITOR), "set_quaternion", "get_quaternion");
 	ADD_PROPERTY(PropertyInfo(Variant::BASIS, "basis", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_basis", "get_basis");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "scale", PROPERTY_HINT_LINK, "", PROPERTY_USAGE_EDITOR), "set_scale", "get_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "rotation_edit_mode", PROPERTY_HINT_ENUM, "Euler,Quaternion,Basis"), "set_rotation_edit_mode", "get_rotation_edit_mode");

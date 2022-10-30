@@ -60,6 +60,7 @@
 #endif
 
 #if defined(DBUS_ENABLED)
+#include "freedesktop_portal_desktop.h"
 #include "freedesktop_screensaver.h"
 #endif
 
@@ -120,6 +121,10 @@ class DisplayServerX11 : public DisplayServer {
 	TTS_Linux *tts = nullptr;
 #endif
 
+#if defined(DBUS_ENABLED)
+	FreeDesktopPortalDesktop *portal_desktop = nullptr;
+#endif
+
 	struct WindowData {
 		Window x11_window;
 		::XIC xic;
@@ -152,7 +157,9 @@ class DisplayServerX11 : public DisplayServer {
 		Vector2i last_position_before_fs;
 		bool focused = true;
 		bool minimized = false;
+		bool maximized = false;
 		bool is_popup = false;
+		bool layered_window = false;
 
 		Rect2i parent_safe_rect;
 
@@ -245,8 +252,6 @@ class DisplayServerX11 : public DisplayServer {
 	CursorShape current_cursor = CURSOR_ARROW;
 	HashMap<CursorShape, Vector<Variant>> cursors_cache;
 
-	bool layered_window = false;
-
 	String rendering_driver;
 	void set_wm_fullscreen(bool p_enabled);
 	void set_wm_above(bool p_enabled);
@@ -268,13 +273,18 @@ class DisplayServerX11 : public DisplayServer {
 	void _update_real_mouse_position(const WindowData &wd);
 	bool _window_maximize_check(WindowID p_window, const char *p_atom_name) const;
 	bool _window_fullscreen_check(WindowID p_window) const;
+	bool _window_minimize_check(WindowID p_window) const;
+	void _validate_mode_on_map(WindowID p_window);
 	void _update_size_hints(WindowID p_window);
 	void _set_wm_fullscreen(WindowID p_window, bool p_enabled);
 	void _set_wm_maximized(WindowID p_window, bool p_enabled);
+	void _set_wm_minimized(WindowID p_window, bool p_enabled);
 
 	void _update_context(WindowData &wd);
 
 	Context context = CONTEXT_ENGINE;
+
+	WindowID _get_focused_window_or_popup() const;
 
 	void _send_window_event(const WindowData &wd, WindowEvent p_event);
 	static void _dispatch_input_events(const Ref<InputEvent> &p_event);
@@ -308,12 +318,17 @@ public:
 #ifdef SPEECHD_ENABLED
 	virtual bool tts_is_speaking() const override;
 	virtual bool tts_is_paused() const override;
-	virtual Array tts_get_voices() const override;
+	virtual TypedArray<Dictionary> tts_get_voices() const override;
 
 	virtual void tts_speak(const String &p_text, const String &p_voice, int p_volume = 50, float p_pitch = 1.f, float p_rate = 1.f, int p_utterance_id = 0, bool p_interrupt = false) override;
 	virtual void tts_pause() override;
 	virtual void tts_resume() override;
 	virtual void tts_stop() override;
+#endif
+
+#if defined(DBUS_ENABLED)
+	virtual bool is_dark_mode_supported() const override;
+	virtual bool is_dark_mode() const override;
 #endif
 
 	virtual void mouse_set_mode(MouseMode p_mode) override;
@@ -334,7 +349,6 @@ public:
 	virtual Rect2i screen_get_usable_rect(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual int screen_get_dpi(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual float screen_get_refresh_rate(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
-	virtual bool screen_is_touchscreen(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 
 #if defined(DBUS_ENABLED)
 	virtual void screen_set_keep_on(bool p_enable) override;
@@ -430,12 +444,12 @@ public:
 	virtual void set_native_icon(const String &p_filename) override;
 	virtual void set_icon(const Ref<Image> &p_icon) override;
 
-	static DisplayServer *create_func(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error);
+	static DisplayServer *create_func(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error);
 	static Vector<String> get_rendering_drivers_func();
 
 	static void register_x11_driver();
 
-	DisplayServerX11(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error);
+	DisplayServerX11(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error);
 	~DisplayServerX11();
 };
 

@@ -30,6 +30,7 @@
 
 #include "editor_debugger_node.h"
 
+#include "core/object/undo_redo.h"
 #include "editor/debugger/editor_debugger_tree.h"
 #include "editor/debugger/script_editor_debugger.h"
 #include "editor/editor_log.h"
@@ -83,8 +84,6 @@ EditorDebuggerNode::EditorDebuggerNode() {
 	inspect_edited_object_timeout = EDITOR_DEF("debugger/remote_inspect_refresh_interval", 0.2);
 
 	EditorNode *editor = EditorNode::get_singleton();
-	editor->get_undo_redo()->set_method_notify_callback(_method_changeds, this);
-	editor->get_undo_redo()->set_property_notify_callback(_property_changeds, this);
 	editor->get_pause_button()->connect("pressed", callable_mp(this, &EditorDebuggerNode::_paused));
 }
 
@@ -179,6 +178,11 @@ void EditorDebuggerNode::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("clear_execution", PropertyInfo("script")));
 	ADD_SIGNAL(MethodInfo("breaked", PropertyInfo(Variant::BOOL, "reallydid"), PropertyInfo(Variant::BOOL, "can_debug")));
 	ADD_SIGNAL(MethodInfo("breakpoint_toggled", PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::INT, "line"), PropertyInfo(Variant::BOOL, "enabled")));
+}
+
+void EditorDebuggerNode::register_undo_redo(UndoRedo *p_undo_redo) {
+	p_undo_redo->set_method_notify_callback(_method_changeds, this);
+	p_undo_redo->set_property_notify_callback(_property_changeds, this);
 }
 
 EditorDebuggerRemoteObject *EditorDebuggerNode::get_inspected_remote_object() {
@@ -473,13 +477,10 @@ void EditorDebuggerNode::_menu_option(int p_id) {
 }
 
 void EditorDebuggerNode::_update_debug_options() {
-	bool keep_debugger_open = EditorSettings::get_singleton()->get_project_metadata("debug_options", "keep_debugger_open", false);
-	bool debug_with_external_editor = EditorSettings::get_singleton()->get_project_metadata("debug_options", "debug_with_external_editor", false);
-
-	if (keep_debugger_open) {
+	if (EditorSettings::get_singleton()->get_project_metadata("debug_options", "keep_debugger_open", false).operator bool()) {
 		_menu_option(DEBUG_KEEP_DEBUGGER_OPEN);
 	}
-	if (debug_with_external_editor) {
+	if (EditorSettings::get_singleton()->get_project_metadata("debug_options", "debug_with_external_editor", false).operator bool()) {
 		_menu_option(DEBUG_WITH_EXTERNAL_EDITOR);
 	}
 }

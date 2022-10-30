@@ -33,6 +33,7 @@
 #include "core/config/project_settings.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "scene/gui/check_button.h"
 #include "scene/gui/line_edit.h"
 #include "scene/gui/option_button.h"
@@ -148,7 +149,7 @@ void EditorLocaleDialog::_filter_lang_option_changed() {
 
 void EditorLocaleDialog::_filter_script_option_changed() {
 	TreeItem *t = script_list->get_edited();
-	String script = t->get_metadata(0);
+	String scr_code = t->get_metadata(0);
 	bool checked = t->is_checked(0);
 
 	Variant prev;
@@ -159,11 +160,11 @@ void EditorLocaleDialog::_filter_script_option_changed() {
 		prev = f_script_all;
 	}
 
-	int l_idx = f_script_all.find(script);
+	int l_idx = f_script_all.find(scr_code);
 
 	if (checked) {
 		if (l_idx == -1) {
-			f_script_all.append(script);
+			f_script_all.append(scr_code);
 		}
 	} else {
 		if (l_idx != -1) {
@@ -297,7 +298,7 @@ void EditorLocaleDialog::_update_tree() {
 	Vector<String> scripts = TranslationServer::get_singleton()->get_all_scripts();
 	for (const String &E : scripts) {
 		if (is_edit_mode || (filter == SHOW_ALL_LOCALES) || f_script_all.has(E) || f_script_all.is_empty()) {
-			const String &script = TranslationServer::get_singleton()->get_script_name(E);
+			const String &scr_code = TranslationServer::get_singleton()->get_script_name(E);
 			TreeItem *t = script_list->create_item(s_root);
 			if (is_edit_mode) {
 				t->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
@@ -306,7 +307,7 @@ void EditorLocaleDialog::_update_tree() {
 			} else if (script_code->get_text() == E) {
 				t->select(0);
 			}
-			t->set_text(0, vformat("%s [%s]", script, E));
+			t->set_text(0, vformat("%s [%s]", scr_code, E));
 			t->set_metadata(0, E);
 		}
 	}
@@ -492,7 +493,7 @@ EditorLocaleDialog::EditorLocaleDialog() {
 				{
 					lang_code = memnew(LineEdit);
 					lang_code->set_max_length(3);
-					lang_code->set_tooltip("Language");
+					lang_code->set_tooltip_text("Language");
 					vb_language->add_child(lang_code);
 				}
 				hb_locale->add_child(vb_language);
@@ -508,7 +509,7 @@ EditorLocaleDialog::EditorLocaleDialog() {
 				{
 					script_code = memnew(LineEdit);
 					script_code->set_max_length(4);
-					script_code->set_tooltip("Script");
+					script_code->set_tooltip_text("Script");
 					vb_script->add_child(script_code);
 				}
 				hb_locale->add_child(vb_script);
@@ -524,7 +525,7 @@ EditorLocaleDialog::EditorLocaleDialog() {
 				{
 					country_code = memnew(LineEdit);
 					country_code->set_max_length(2);
-					country_code->set_tooltip("Country");
+					country_code->set_tooltip_text("Country");
 					vb_country->add_child(country_code);
 				}
 				hb_locale->add_child(vb_country);
@@ -541,7 +542,7 @@ EditorLocaleDialog::EditorLocaleDialog() {
 					variant_code = memnew(LineEdit);
 					variant_code->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 					variant_code->set_placeholder("Variant");
-					variant_code->set_tooltip("Variant");
+					variant_code->set_tooltip_text("Variant");
 					vb_variant->add_child(variant_code);
 				}
 				hb_locale->add_child(vb_variant);

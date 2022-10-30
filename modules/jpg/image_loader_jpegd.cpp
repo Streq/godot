@@ -99,12 +99,12 @@ Error jpeg_load_image_from_buffer(Image *p_image, const uint8_t *p_buffer, int p
 		fmt = Image::FORMAT_RGB8;
 	}
 
-	p_image->create(image_width, image_height, false, fmt, data);
+	p_image->set_data(image_width, image_height, false, fmt, data);
 
 	return OK;
 }
 
-Error ImageLoaderJPG::load_image(Ref<Image> p_image, Ref<FileAccess> f, bool p_force_linear, float p_scale) {
+Error ImageLoaderJPG::load_image(Ref<Image> p_image, Ref<FileAccess> f, BitField<ImageFormatLoader::LoaderFlags> p_flags, float p_scale) {
 	Vector<uint8_t> src_image;
 	uint64_t src_image_len = f->get_length();
 	ERR_FAIL_COND_V(src_image_len == 0, ERR_FILE_CORRUPT);

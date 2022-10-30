@@ -65,18 +65,33 @@ void EditorLog::_error_handler(void *p_self, const char *p_func, const char *p_f
 }
 
 void EditorLog::_update_theme() {
-	Ref<Font> normal_font = get_theme_font(SNAME("output_source"), SNAME("EditorFonts"));
+	const Ref<Font> normal_font = get_theme_font(SNAME("output_source"), SNAME("EditorFonts"));
 	if (normal_font.is_valid()) {
 		log->add_theme_font_override("normal_font", normal_font);
 	}
 
-	log->add_theme_font_size_override("normal_font_size", get_theme_font_size(SNAME("output_source_size"), SNAME("EditorFonts")));
-	log->add_theme_color_override("selection_color", get_theme_color(SNAME("accent_color"), SNAME("Editor")) * Color(1, 1, 1, 0.4));
-
-	Ref<Font> bold_font = get_theme_font(SNAME("bold"), SNAME("EditorFonts"));
+	const Ref<Font> bold_font = get_theme_font(SNAME("output_source_bold"), SNAME("EditorFonts"));
 	if (bold_font.is_valid()) {
 		log->add_theme_font_override("bold_font", bold_font);
 	}
+
+	const Ref<Font> italics_font = get_theme_font(SNAME("output_source_italic"), SNAME("EditorFonts"));
+	if (italics_font.is_valid()) {
+		log->add_theme_font_override("italics_font", italics_font);
+	}
+
+	const Ref<Font> bold_italics_font = get_theme_font(SNAME("output_source_bold_italic"), SNAME("EditorFonts"));
+	if (bold_italics_font.is_valid()) {
+		log->add_theme_font_override("bold_italics_font", bold_italics_font);
+	}
+
+	const Ref<Font> mono_font = get_theme_font(SNAME("output_source_mono"), SNAME("EditorFonts"));
+	if (mono_font.is_valid()) {
+		log->add_theme_font_override("mono_font", mono_font);
+	}
+
+	log->add_theme_font_size_override("normal_font_size", get_theme_font_size(SNAME("output_source_size"), SNAME("EditorFonts")));
+	log->add_theme_color_override("selection_color", get_theme_color(SNAME("accent_color"), SNAME("Editor")) * Color(1, 1, 1, 0.4));
 
 	type_filter_map[MSG_TYPE_STD]->toggle_button->set_icon(get_theme_icon(SNAME("Popup"), SNAME("EditorIcons")));
 	type_filter_map[MSG_TYPE_ERROR]->toggle_button->set_icon(get_theme_icon(SNAME("StatusError"), SNAME("EditorIcons")));
@@ -131,7 +146,7 @@ void EditorLog::_save_state() {
 	Ref<ConfigFile> config;
 	config.instantiate();
 	// Load and amend existing config if it exists.
-	config->load(EditorPaths::get_singleton()->get_project_settings_dir().plus_file("editor_layout.cfg"));
+	config->load(EditorPaths::get_singleton()->get_project_settings_dir().path_join("editor_layout.cfg"));
 
 	const String section = "editor_log";
 	for (const KeyValue<MessageType, LogFilter *> &E : type_filter_map) {
@@ -141,7 +156,7 @@ void EditorLog::_save_state() {
 	config->set_value(section, "collapse", collapse);
 	config->set_value(section, "show_search", search_box->is_visible());
 
-	config->save(EditorPaths::get_singleton()->get_project_settings_dir().plus_file("editor_layout.cfg"));
+	config->save(EditorPaths::get_singleton()->get_project_settings_dir().path_join("editor_layout.cfg"));
 }
 
 void EditorLog::_load_state() {
@@ -149,7 +164,7 @@ void EditorLog::_load_state() {
 
 	Ref<ConfigFile> config;
 	config.instantiate();
-	config->load(EditorPaths::get_singleton()->get_project_settings_dir().plus_file("editor_layout.cfg"));
+	config->load(EditorPaths::get_singleton()->get_project_settings_dir().path_join("editor_layout.cfg"));
 
 	// Run the below code even if config->load returns an error, since we want the defaults to be set even if the file does not exist yet.
 	const String section = "editor_log";
@@ -224,6 +239,10 @@ void EditorLog::set_tool_button(Button *p_tool_button) {
 	tool_button = p_tool_button;
 }
 
+void EditorLog::register_undo_redo(UndoRedo *p_undo_redo) {
+	p_undo_redo->set_commit_notify_callback(_undo_redo_cbk, this);
+}
+
 void EditorLog::_undo_redo_cbk(void *p_self, const String &p_name) {
 	EditorLog *self = static_cast<EditorLog *>(p_self);
 	self->add_message(p_name, EditorLog::MSG_TYPE_EDITOR);
@@ -248,6 +267,11 @@ void EditorLog::_rebuild_log() {
 }
 
 void EditorLog::_add_log_line(LogMessage &p_message, bool p_replace_previous) {
+	if (!is_inside_tree()) {
+		// The log will be built all at once when it enters the tree and has its theme items.
+		return;
+	}
+
 	// Only add the message to the log if it passes the filters.
 	bool filter_active = type_filter_map[p_message.type]->is_active();
 	String search_text = search_box->get_text();
@@ -387,7 +411,7 @@ EditorLog::EditorLog() {
 	clear_button = memnew(Button);
 	clear_button->set_flat(true);
 	clear_button->set_focus_mode(FOCUS_NONE);
-	clear_button->set_shortcut(ED_SHORTCUT("editor/clear_output", TTR("Clear Output"), KeyModifierMask::CMD | KeyModifierMask::SHIFT | Key::K));
+	clear_button->set_shortcut(ED_SHORTCUT("editor/clear_output", TTR("Clear Output"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::K));
 	clear_button->set_shortcut_context(this);
 	clear_button->connect("pressed", callable_mp(this, &EditorLog::_clear_request));
 	hb_tools->add_child(clear_button);
@@ -396,7 +420,7 @@ EditorLog::EditorLog() {
 	copy_button = memnew(Button);
 	copy_button->set_flat(true);
 	copy_button->set_focus_mode(FOCUS_NONE);
-	copy_button->set_shortcut(ED_SHORTCUT("editor/copy_output", TTR("Copy Selection"), KeyModifierMask::CMD | Key::C));
+	copy_button->set_shortcut(ED_SHORTCUT("editor/copy_output", TTR("Copy Selection"), KeyModifierMask::CMD_OR_CTRL | Key::C));
 	copy_button->set_shortcut_context(this);
 	copy_button->connect("pressed", callable_mp(this, &EditorLog::_copy_request));
 	hb_tools->add_child(copy_button);
@@ -410,7 +434,7 @@ EditorLog::EditorLog() {
 	collapse_button = memnew(Button);
 	collapse_button->set_flat(true);
 	collapse_button->set_focus_mode(FOCUS_NONE);
-	collapse_button->set_tooltip(TTR("Collapse duplicate messages into one log entry. Shows number of occurrences."));
+	collapse_button->set_tooltip_text(TTR("Collapse duplicate messages into one log entry. Shows number of occurrences."));
 	collapse_button->set_toggle_mode(true);
 	collapse_button->set_pressed(false);
 	collapse_button->connect("toggled", callable_mp(this, &EditorLog::_set_collapse));
@@ -422,7 +446,7 @@ EditorLog::EditorLog() {
 	show_search_button->set_focus_mode(FOCUS_NONE);
 	show_search_button->set_toggle_mode(true);
 	show_search_button->set_pressed(true);
-	show_search_button->set_shortcut(ED_SHORTCUT("editor/open_search", TTR("Focus Search/Filter Bar"), KeyModifierMask::CMD | Key::F));
+	show_search_button->set_shortcut(ED_SHORTCUT("editor/open_search", TTR("Focus Search/Filter Bar"), KeyModifierMask::CMD_OR_CTRL | Key::F));
 	show_search_button->set_shortcut_context(this);
 	show_search_button->connect("toggled", callable_mp(this, &EditorLog::_set_search_visible));
 	hb_tools2->add_child(show_search_button);
@@ -458,8 +482,6 @@ EditorLog::EditorLog() {
 	add_error_handler(&eh);
 
 	current = Thread::get_caller_id();
-
-	EditorNode::get_undo_redo()->set_commit_notify_callback(_undo_redo_cbk, this);
 }
 
 void EditorLog::deinit() {

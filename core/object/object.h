@@ -45,9 +45,12 @@
 #include "core/variant/callable_bind.h"
 #include "core/variant/variant.h"
 
+template <typename T>
+class TypedArray;
+
 enum PropertyHint {
 	PROPERTY_HINT_NONE, ///< no hint provided.
-	PROPERTY_HINT_RANGE, ///< hint_text = "min,max[,step][,or_greater][,or_lesser][,no_slider][,radians][,degrees][,exp][,suffix:<keyword>] range.
+	PROPERTY_HINT_RANGE, ///< hint_text = "min,max[,step][,or_greater][,or_less][,hide_slider][,radians][,degrees][,exp][,suffix:<keyword>] range.
 	PROPERTY_HINT_ENUM, ///< hint_text= "val1,val2,val3,etc"
 	PROPERTY_HINT_ENUM_SUGGESTION, ///< hint_text= "val1,val2,val3,etc"
 	PROPERTY_HINT_EXP_EASING, /// exponential easing function (Math::ease) use "attenuation" hint string to revert (flip h), "positive_only" to exclude in-out and out-in. (ie: "attenuation,positive_only")
@@ -91,6 +94,8 @@ enum PropertyHint {
 	PROPERTY_HINT_LOCALE_ID,
 	PROPERTY_HINT_LOCALIZABLE_STRING,
 	PROPERTY_HINT_NODE_TYPE, ///< a node object type
+	PROPERTY_HINT_HIDE_QUATERNION_EDIT, /// Only Node3D::transform should hide the quaternion editor.
+	PROPERTY_HINT_PASSWORD,
 	PROPERTY_HINT_MAX,
 	// When updating PropertyHint, also sync the hardcoded list in VisualScriptEditorVariableEdit
 };
@@ -207,7 +212,7 @@ struct PropertyInfo {
 	}
 };
 
-Array convert_property_list(const List<PropertyInfo> *p_list);
+TypedArray<Dictionary> convert_property_list(const List<PropertyInfo> *p_list);
 
 enum MethodFlags {
 	METHOD_FLAG_NORMAL = 1,
@@ -290,6 +295,8 @@ struct ObjectNativeExtension {
 	StringName parent_class_name;
 	StringName class_name;
 	bool editor_class = false;
+	bool is_virtual = false;
+	bool is_abstract = false;
 	GDNativeExtensionClassSet set;
 	GDNativeExtensionClassGet get;
 	GDNativeExtensionClassGetPropertyList get_property_list;
@@ -471,6 +478,15 @@ protected:                                                                      
 			m_inherits::_get_property_listv(p_list, p_reversed);                                                                                 \
 		}                                                                                                                                        \
 	}                                                                                                                                            \
+	_FORCE_INLINE_ void (Object::*_get_validate_property() const)(PropertyInfo & p_property) const {                                             \
+		return (void(Object::*)(PropertyInfo &) const) & m_class::_validate_property;                                                            \
+	}                                                                                                                                            \
+	virtual void _validate_propertyv(PropertyInfo &p_property) const override {                                                                  \
+		m_inherits::_validate_propertyv(p_property);                                                                                             \
+		if (m_class::_get_validate_property() != m_inherits::_get_validate_property()) {                                                         \
+			_validate_property(p_property);                                                                                                      \
+		}                                                                                                                                        \
+	}                                                                                                                                            \
 	_FORCE_INLINE_ bool (Object::*_get_property_can_revert() const)(const StringName &p_name) const {                                            \
 		return (bool(Object::*)(const StringName &) const) & m_class::_property_can_revert;                                                      \
 	}                                                                                                                                            \
@@ -523,7 +539,7 @@ public:
 	enum ConnectFlags {
 		CONNECT_DEFERRED = 1,
 		CONNECT_PERSIST = 2, // hint for scene to save this connection
-		CONNECT_ONESHOT = 4,
+		CONNECT_ONE_SHOT = 4,
 		CONNECT_REFERENCE_COUNTED = 8,
 	};
 
@@ -588,9 +604,9 @@ private:
 	void _add_user_signal(const String &p_name, const Array &p_args = Array());
 	bool _has_user_signal(const StringName &p_name) const;
 	Error _emit_signal(const Variant **p_args, int p_argcount, Callable::CallError &r_error);
-	Array _get_signal_list() const;
-	Array _get_signal_connection_list(const StringName &p_signal) const;
-	Array _get_incoming_connections() const;
+	TypedArray<Dictionary> _get_signal_list() const;
+	TypedArray<Dictionary> _get_signal_connection_list(const StringName &p_signal) const;
+	TypedArray<Dictionary> _get_incoming_connections() const;
 	void _set_bind(const StringName &p_set, const Variant &p_value);
 	Variant _get_bind(const StringName &p_name) const;
 	void _set_indexed_bind(const NodePath &p_name, const Variant &p_value);
@@ -637,6 +653,7 @@ protected:
 	virtual bool _setv(const StringName &p_name, const Variant &p_property) { return false; };
 	virtual bool _getv(const StringName &p_name, Variant &r_property) const { return false; };
 	virtual void _get_property_listv(List<PropertyInfo> *p_list, bool p_reversed) const {};
+	virtual void _validate_propertyv(PropertyInfo &p_property) const {};
 	virtual bool _property_can_revertv(const StringName &p_name) const { return false; };
 	virtual bool _property_get_revertv(const StringName &p_name, Variant &r_property) const { return false; };
 	virtual void _notificationv(int p_notification, bool p_reversed) {}
@@ -645,6 +662,7 @@ protected:
 	bool _set(const StringName &p_name, const Variant &p_property) { return false; };
 	bool _get(const StringName &p_name, Variant &r_property) const { return false; };
 	void _get_property_list(List<PropertyInfo> *p_list) const {};
+	void _validate_property(PropertyInfo &p_property) const {};
 	bool _property_can_revert(const StringName &p_name) const { return false; };
 	bool _property_get_revert(const StringName &p_name, Variant &r_property) const { return false; };
 	void _notification(int p_notification) {}
@@ -660,6 +678,9 @@ protected:
 	}
 	_FORCE_INLINE_ void (Object::*_get_get_property_list() const)(List<PropertyInfo> *p_list) const {
 		return &Object::_get_property_list;
+	}
+	_FORCE_INLINE_ void (Object::*_get_validate_property() const)(PropertyInfo &p_property) const {
+		return &Object::_validate_property;
 	}
 	_FORCE_INLINE_ bool (Object::*_get_property_can_revert() const)(const StringName &p_name) const {
 		return &Object::_property_can_revert;
@@ -684,13 +705,12 @@ protected:
 	}
 
 	Vector<StringName> _get_meta_list_bind() const;
-	Array _get_property_list_bind() const;
-	Array _get_method_list_bind() const;
+	TypedArray<Dictionary> _get_property_list_bind() const;
+	TypedArray<Dictionary> _get_method_list_bind() const;
 
 	void _clear_internal_resource_paths(const Variant &p_var);
 
 	friend class ClassDB;
-	virtual void _validate_property(PropertyInfo &property) const;
 
 	void _disconnect(const StringName &p_signal, const Callable &p_callable, bool p_force = false);
 
@@ -715,34 +735,12 @@ public:
 
 	template <class T>
 	static T *cast_to(Object *p_object) {
-#ifndef NO_SAFE_CAST
 		return dynamic_cast<T *>(p_object);
-#else
-		if (!p_object) {
-			return nullptr;
-		}
-		if (p_object->is_class_ptr(T::get_class_ptr_static())) {
-			return static_cast<T *>(p_object);
-		} else {
-			return nullptr;
-		}
-#endif
 	}
 
 	template <class T>
 	static const T *cast_to(const Object *p_object) {
-#ifndef NO_SAFE_CAST
 		return dynamic_cast<const T *>(p_object);
-#else
-		if (!p_object) {
-			return nullptr;
-		}
-		if (p_object->is_class_ptr(T::get_class_ptr_static())) {
-			return static_cast<const T *>(p_object);
-		} else {
-			return nullptr;
-		}
-#endif
 	}
 
 	enum {
@@ -791,8 +789,9 @@ public:
 	Variant get_indexed(const Vector<StringName> &p_names, bool *r_valid = nullptr) const;
 
 	void get_property_list(List<PropertyInfo> *p_list, bool p_reversed = false) const;
-	bool property_can_revert(const String &p_name) const;
-	Variant property_get_revert(const String &p_name) const;
+	void validate_property(PropertyInfo &p_property) const;
+	bool property_can_revert(const StringName &p_name) const;
+	Variant property_get_revert(const StringName &p_name) const;
 
 	bool has_method(const StringName &p_method) const;
 	void get_method_list(List<MethodInfo> *p_list) const;

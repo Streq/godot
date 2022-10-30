@@ -141,7 +141,7 @@ public:
 		}
 	}
 	void add_property_hint(const PropertyInfo &p_hint);
-	Array get_changed_settings() const;
+	PackedStringArray get_changed_settings() const;
 	bool check_changed_settings_in_group(const String &p_setting_prefix) const;
 	void mark_setting_changed(const String &p_setting);
 
@@ -175,7 +175,7 @@ public:
 	Ref<Shortcut> get_shortcut(const String &p_name) const;
 	void get_shortcut_list(List<String> *r_shortcuts);
 
-	void set_builtin_action_override(const String &p_name, const Array &p_events);
+	void set_builtin_action_override(const String &p_name, const TypedArray<InputEvent> &p_events);
 	const Array get_builtin_action_overrides(const String &p_name) const;
 
 	void notify_changes();

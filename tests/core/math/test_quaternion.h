@@ -41,9 +41,9 @@
 namespace TestQuaternion {
 
 Quaternion quat_euler_yxz_deg(Vector3 angle) {
-	double yaw = Math::deg2rad(angle[1]);
-	double pitch = Math::deg2rad(angle[0]);
-	double roll = Math::deg2rad(angle[2]);
+	double yaw = Math::deg_to_rad(angle[1]);
+	double pitch = Math::deg_to_rad(angle[0]);
+	double roll = Math::deg_to_rad(angle[2]);
 
 	// Generate YXZ (Z-then-X-then-Y) Quaternion using single-axis Euler
 	// constructor and quaternion product, both tested separately.
@@ -77,7 +77,7 @@ TEST_CASE("[Quaternion] Construct x,y,z,w") {
 
 TEST_CASE("[Quaternion] Construct AxisAngle 1") {
 	// Easy to visualize: 120 deg about X-axis.
-	Quaternion q(Vector3(1.0, 0.0, 0.0), Math::deg2rad(120.0));
+	Quaternion q(Vector3(1.0, 0.0, 0.0), Math::deg_to_rad(120.0));
 
 	// 0.866 isn't close enough; doctest::Approx doesn't cut much slack!
 	CHECK(q[0] == doctest::Approx(0.866025)); // Sine of half the angle.
@@ -88,7 +88,7 @@ TEST_CASE("[Quaternion] Construct AxisAngle 1") {
 
 TEST_CASE("[Quaternion] Construct AxisAngle 2") {
 	// Easy to visualize: 30 deg about Y-axis.
-	Quaternion q(Vector3(0.0, 1.0, 0.0), Math::deg2rad(30.0));
+	Quaternion q(Vector3(0.0, 1.0, 0.0), Math::deg_to_rad(30.0));
 
 	CHECK(q[0] == doctest::Approx(0.0));
 	CHECK(q[1] == doctest::Approx(0.258819)); // Sine of half the angle.
@@ -98,7 +98,7 @@ TEST_CASE("[Quaternion] Construct AxisAngle 2") {
 
 TEST_CASE("[Quaternion] Construct AxisAngle 3") {
 	// Easy to visualize: 60 deg about Z-axis.
-	Quaternion q(Vector3(0.0, 0.0, 1.0), Math::deg2rad(60.0));
+	Quaternion q(Vector3(0.0, 0.0, 1.0), Math::deg_to_rad(60.0));
 
 	CHECK(q[0] == doctest::Approx(0.0));
 	CHECK(q[1] == doctest::Approx(0.0));
@@ -109,7 +109,7 @@ TEST_CASE("[Quaternion] Construct AxisAngle 3") {
 TEST_CASE("[Quaternion] Construct AxisAngle 4") {
 	// More complex & hard to visualize, so test w/ data from online calculator.
 	Vector3 axis(1.0, 2.0, 0.5);
-	Quaternion q(axis.normalized(), Math::deg2rad(35.0));
+	Quaternion q(axis.normalized(), Math::deg_to_rad(35.0));
 
 	CHECK(q[0] == doctest::Approx(0.131239));
 	CHECK(q[1] == doctest::Approx(0.262478));
@@ -119,7 +119,7 @@ TEST_CASE("[Quaternion] Construct AxisAngle 4") {
 
 TEST_CASE("[Quaternion] Construct from Quaternion") {
 	Vector3 axis(1.0, 2.0, 0.5);
-	Quaternion q_src(axis.normalized(), Math::deg2rad(35.0));
+	Quaternion q_src(axis.normalized(), Math::deg_to_rad(35.0));
 	Quaternion q(q_src);
 
 	CHECK(q[0] == doctest::Approx(0.131239));
@@ -129,9 +129,9 @@ TEST_CASE("[Quaternion] Construct from Quaternion") {
 }
 
 TEST_CASE("[Quaternion] Construct Euler SingleAxis") {
-	double yaw = Math::deg2rad(45.0);
-	double pitch = Math::deg2rad(30.0);
-	double roll = Math::deg2rad(10.0);
+	double yaw = Math::deg_to_rad(45.0);
+	double pitch = Math::deg_to_rad(30.0);
+	double roll = Math::deg_to_rad(10.0);
 
 	Vector3 euler_y(0.0, yaw, 0.0);
 	Quaternion q_y(euler_y);
@@ -156,11 +156,11 @@ TEST_CASE("[Quaternion] Construct Euler SingleAxis") {
 }
 
 TEST_CASE("[Quaternion] Construct Euler YXZ dynamic axes") {
-	double yaw = Math::deg2rad(45.0);
-	double pitch = Math::deg2rad(30.0);
-	double roll = Math::deg2rad(10.0);
+	double yaw = Math::deg_to_rad(45.0);
+	double pitch = Math::deg_to_rad(30.0);
+	double roll = Math::deg_to_rad(10.0);
 
-	// Generate YXZ comparision data (Z-then-X-then-Y) using single-axis Euler
+	// Generate YXZ comparison data (Z-then-X-then-Y) using single-axis Euler
 	// constructor and quaternion product, both tested separately.
 	Vector3 euler_y(0.0, yaw, 0.0);
 	Quaternion q_y(euler_y);
@@ -187,19 +187,19 @@ TEST_CASE("[Quaternion] Construct Euler YXZ dynamic axes") {
 }
 
 TEST_CASE("[Quaternion] Construct Basis Euler") {
-	double yaw = Math::deg2rad(45.0);
-	double pitch = Math::deg2rad(30.0);
-	double roll = Math::deg2rad(10.0);
+	double yaw = Math::deg_to_rad(45.0);
+	double pitch = Math::deg_to_rad(30.0);
+	double roll = Math::deg_to_rad(10.0);
 	Vector3 euler_yxz(pitch, yaw, roll);
 	Quaternion q_yxz(euler_yxz);
-	Basis basis_axes(euler_yxz);
+	Basis basis_axes = Basis::from_euler(euler_yxz);
 	Quaternion q(basis_axes);
 	CHECK(q.is_equal_approx(q_yxz));
 }
 
 TEST_CASE("[Quaternion] Construct Basis Axes") {
 	// Arbitrary Euler angles.
-	Vector3 euler_yxz(Math::deg2rad(31.41), Math::deg2rad(-49.16), Math::deg2rad(12.34));
+	Vector3 euler_yxz(Math::deg_to_rad(31.41), Math::deg_to_rad(-49.16), Math::deg_to_rad(12.34));
 	// Basis vectors from online calculation of rotation matrix.
 	Vector3 i_unit(0.5545787, 0.1823950, 0.8118957);
 	Vector3 j_unit(-0.5249245, 0.8337420, 0.1712555);
@@ -218,7 +218,7 @@ TEST_CASE("[Quaternion] Construct Basis Axes") {
 	// This is by design, but may be subject to change.
 	// Workaround by constructing Basis from Euler angles.
 	// basis_axes = Basis(i_unit, j_unit, k_unit);
-	Basis basis_axes(euler_yxz);
+	Basis basis_axes = Basis::from_euler(euler_yxz);
 	Quaternion q(basis_axes);
 
 	CHECK(basis_axes.get_column(0).is_equal_approx(i_unit));
@@ -248,9 +248,9 @@ TEST_CASE("[Quaternion] Product (book)") {
 }
 
 TEST_CASE("[Quaternion] Product") {
-	double yaw = Math::deg2rad(45.0);
-	double pitch = Math::deg2rad(30.0);
-	double roll = Math::deg2rad(10.0);
+	double yaw = Math::deg_to_rad(45.0);
+	double pitch = Math::deg_to_rad(30.0);
+	double roll = Math::deg_to_rad(10.0);
 
 	Vector3 euler_y(0.0, yaw, 0.0);
 	Quaternion q_y(euler_y);
@@ -292,7 +292,7 @@ TEST_CASE("[Quaternion] Product") {
 TEST_CASE("[Quaternion] xform unit vectors") {
 	// Easy to visualize: 120 deg about X-axis.
 	// Transform the i, j, & k unit vectors.
-	Quaternion q(Vector3(1.0, 0.0, 0.0), Math::deg2rad(120.0));
+	Quaternion q(Vector3(1.0, 0.0, 0.0), Math::deg_to_rad(120.0));
 	Vector3 i_t = q.xform(Vector3(1.0, 0.0, 0.0));
 	Vector3 j_t = q.xform(Vector3(0.0, 1.0, 0.0));
 	Vector3 k_t = q.xform(Vector3(0.0, 0.0, 1.0));
@@ -305,7 +305,7 @@ TEST_CASE("[Quaternion] xform unit vectors") {
 	CHECK(k_t.length_squared() == doctest::Approx(1.0));
 
 	// Easy to visualize: 30 deg about Y-axis.
-	q = Quaternion(Vector3(0.0, 1.0, 0.0), Math::deg2rad(30.0));
+	q = Quaternion(Vector3(0.0, 1.0, 0.0), Math::deg_to_rad(30.0));
 	i_t = q.xform(Vector3(1.0, 0.0, 0.0));
 	j_t = q.xform(Vector3(0.0, 1.0, 0.0));
 	k_t = q.xform(Vector3(0.0, 0.0, 1.0));
@@ -318,7 +318,7 @@ TEST_CASE("[Quaternion] xform unit vectors") {
 	CHECK(k_t.length_squared() == doctest::Approx(1.0));
 
 	// Easy to visualize: 60 deg about Z-axis.
-	q = Quaternion(Vector3(0.0, 0.0, 1.0), Math::deg2rad(60.0));
+	q = Quaternion(Vector3(0.0, 0.0, 1.0), Math::deg_to_rad(60.0));
 	i_t = q.xform(Vector3(1.0, 0.0, 0.0));
 	j_t = q.xform(Vector3(0.0, 1.0, 0.0));
 	k_t = q.xform(Vector3(0.0, 0.0, 1.0));
@@ -333,8 +333,8 @@ TEST_CASE("[Quaternion] xform unit vectors") {
 
 TEST_CASE("[Quaternion] xform vector") {
 	// Arbitrary quaternion rotates an arbitrary vector.
-	Vector3 euler_yzx(Math::deg2rad(31.41), Math::deg2rad(-49.16), Math::deg2rad(12.34));
-	Basis basis_axes(euler_yzx);
+	Vector3 euler_yzx(Math::deg_to_rad(31.41), Math::deg_to_rad(-49.16), Math::deg_to_rad(12.34));
+	Basis basis_axes = Basis::from_euler(euler_yzx);
 	Quaternion q(basis_axes);
 
 	Vector3 v_arb(3.0, 4.0, 5.0);
@@ -347,7 +347,7 @@ TEST_CASE("[Quaternion] xform vector") {
 
 // Test vector xform for a single combination of Quaternion and Vector.
 void test_quat_vec_rotate(Vector3 euler_yzx, Vector3 v_in) {
-	Basis basis_axes(euler_yzx);
+	Basis basis_axes = Basis::from_euler(euler_yzx);
 	Quaternion q(basis_axes);
 
 	Vector3 v_rot = q.xform(v_in);
@@ -382,6 +382,63 @@ TEST_CASE("[Stress][Quaternion] Many vector xforms") {
 			}
 		}
 	}
+}
+
+TEST_CASE("[Quaternion] Finite number checks") {
+	const real_t x = NAN;
+
+	CHECK_MESSAGE(
+			Quaternion(0, 1, 2, 3).is_finite(),
+			"Quaternion with all components finite should be finite");
+
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, 1, 2, 3).is_finite(),
+			"Quaternion with one component infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, x, 2, 3).is_finite(),
+			"Quaternion with one component infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, 1, x, 3).is_finite(),
+			"Quaternion with one component infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, 1, 2, x).is_finite(),
+			"Quaternion with one component infinite should not be finite.");
+
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, x, 2, 3).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, 1, x, 3).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, 1, 2, x).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, x, x, 3).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, x, 2, x).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, 1, x, x).is_finite(),
+			"Quaternion with two components infinite should not be finite.");
+
+	CHECK_FALSE_MESSAGE(
+			Quaternion(0, x, x, x).is_finite(),
+			"Quaternion with three components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, 1, x, x).is_finite(),
+			"Quaternion with three components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, x, 2, x).is_finite(),
+			"Quaternion with three components infinite should not be finite.");
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, x, x, 3).is_finite(),
+			"Quaternion with three components infinite should not be finite.");
+
+	CHECK_FALSE_MESSAGE(
+			Quaternion(x, x, x, x).is_finite(),
+			"Quaternion with four components infinite should not be finite.");
 }
 
 } // namespace TestQuaternion

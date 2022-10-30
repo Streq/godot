@@ -201,18 +201,18 @@ typedef GDNativeBool (*GDNativeExtensionClassGet)(GDExtensionClassInstancePtr p_
 typedef uint64_t (*GDNativeExtensionClassGetRID)(GDExtensionClassInstancePtr p_instance);
 
 typedef struct {
-	uint32_t type;
+	GDNativeVariantType type;
 	const char *name;
 	const char *class_name;
-	uint32_t hint;
+	uint32_t hint; // Bitfield of `PropertyHint` (defined in `extension_api.json`)
 	const char *hint_string;
-	uint32_t usage;
+	uint32_t usage; // Bitfield of `PropertyUsageFlags` (defined in `extension_api.json`)
 } GDNativePropertyInfo;
 
 typedef struct {
 	const char *name;
 	GDNativePropertyInfo return_value;
-	uint32_t flags; // From GDNativeExtensionClassMethodFlags
+	uint32_t flags; // Bitfield of `GDNativeExtensionClassMethodFlags`
 	int32_t id;
 	GDNativePropertyInfo *arguments;
 	uint32_t argument_count;
@@ -231,10 +231,11 @@ typedef void (*GDNativeExtensionClassUnreference)(GDExtensionClassInstancePtr p_
 typedef void (*GDNativeExtensionClassCallVirtual)(GDExtensionClassInstancePtr p_instance, const GDNativeTypePtr *p_args, GDNativeTypePtr r_ret);
 typedef GDNativeObjectPtr (*GDNativeExtensionClassCreateInstance)(void *p_userdata);
 typedef void (*GDNativeExtensionClassFreeInstance)(void *p_userdata, GDExtensionClassInstancePtr p_instance);
-typedef void (*GDNativeExtensionClassObjectInstance)(GDExtensionClassInstancePtr p_instance, GDNativeObjectPtr p_object_instance);
 typedef GDNativeExtensionClassCallVirtual (*GDNativeExtensionClassGetVirtual)(void *p_userdata, const char *p_name);
 
 typedef struct {
+	GDNativeBool is_virtual;
+	GDNativeBool is_abstract;
 	GDNativeExtensionClassSet set_func;
 	GDNativeExtensionClassGet get_func;
 	GDNativeExtensionClassGetPropertyList get_property_list_func;
@@ -293,7 +294,7 @@ typedef struct {
 	void *method_userdata;
 	GDNativeExtensionClassMethodCall call_func;
 	GDNativeExtensionClassMethodPtrCall ptrcall_func;
-	uint32_t method_flags; /* GDNativeExtensionClassMethodFlags */
+	uint32_t method_flags; // Bitfield of `GDNativeExtensionClassMethodFlags`
 	uint32_t argument_count;
 	GDNativeBool has_return_value;
 	GDNativeExtensionClassMethodGetArgumentType get_argument_type_func;
@@ -427,9 +428,6 @@ typedef struct {
 	GDNativeInt (*variant_recursive_hash)(const GDNativeVariantPtr p_self, GDNativeInt p_recursion_count);
 	GDNativeBool (*variant_hash_compare)(const GDNativeVariantPtr p_self, const GDNativeVariantPtr p_other);
 	GDNativeBool (*variant_booleanize)(const GDNativeVariantPtr p_self);
-	void (*variant_sub)(const GDNativeVariantPtr p_a, const GDNativeVariantPtr p_b, GDNativeVariantPtr r_dst);
-	void (*variant_blend)(const GDNativeVariantPtr p_a, const GDNativeVariantPtr p_b, float p_c, GDNativeVariantPtr r_dst);
-	void (*variant_interpolate)(const GDNativeVariantPtr p_a, const GDNativeVariantPtr p_b, float p_c, GDNativeVariantPtr r_dst);
 	void (*variant_duplicate)(const GDNativeVariantPtr p_self, GDNativeVariantPtr r_ret, GDNativeBool p_deep);
 	void (*variant_stringify)(const GDNativeVariantPtr p_self, GDNativeStringPtr r_ret);
 

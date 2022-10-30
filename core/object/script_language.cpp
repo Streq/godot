@@ -34,6 +34,7 @@
 #include "core/core_string_names.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
+#include "core/variant/typed_array.h"
 
 #include <stdint.h>
 
@@ -61,8 +62,8 @@ Variant Script::_get_property_default_value(const StringName &p_property) {
 	return ret;
 }
 
-Array Script::_get_script_property_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_property_list() {
+	TypedArray<Dictionary> ret;
 	List<PropertyInfo> list;
 	get_script_property_list(&list);
 	for (const PropertyInfo &E : list) {
@@ -71,8 +72,8 @@ Array Script::_get_script_property_list() {
 	return ret;
 }
 
-Array Script::_get_script_method_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_method_list() {
+	TypedArray<Dictionary> ret;
 	List<MethodInfo> list;
 	get_script_method_list(&list);
 	for (const MethodInfo &E : list) {
@@ -81,8 +82,8 @@ Array Script::_get_script_method_list() {
 	return ret;
 }
 
-Array Script::_get_script_signal_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_signal_list() {
+	TypedArray<Dictionary> ret;
 	List<MethodInfo> list;
 	get_script_signal_list(&list);
 	for (const MethodInfo &E : list) {
@@ -105,23 +106,23 @@ Dictionary Script::_get_script_constant_map() {
 
 PropertyInfo Script::get_class_category() const {
 	String path = get_path();
-	String name;
+	String scr_name;
 
 	if (is_built_in()) {
 		if (get_name().is_empty()) {
-			name = TTR("Built-in script");
+			scr_name = TTR("Built-in script");
 		} else {
-			name = vformat("%s (%s)", get_name(), TTR("Built-in"));
+			scr_name = vformat("%s (%s)", get_name(), TTR("Built-in"));
 		}
 	} else {
 		if (get_name().is_empty()) {
-			name = path.get_file();
+			scr_name = path.get_file();
 		} else {
-			name = get_name();
+			scr_name = get_name();
 		}
 	}
 
-	return PropertyInfo(Variant::NIL, name, PROPERTY_HINT_NONE, path, PROPERTY_USAGE_CATEGORY);
+	return PropertyInfo(Variant::NIL, scr_name, PROPERTY_HINT_NONE, path, PROPERTY_USAGE_CATEGORY);
 }
 
 #endif // TOOLS_ENABLED
@@ -165,6 +166,7 @@ ScriptLanguage *ScriptServer::get_language(int p_idx) {
 }
 
 void ScriptServer::register_language(ScriptLanguage *p_language) {
+	ERR_FAIL_NULL(p_language);
 	ERR_FAIL_COND(_language_count >= MAX_LANGUAGES);
 	_languages[_language_count++] = p_language;
 }

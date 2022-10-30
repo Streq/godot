@@ -36,7 +36,7 @@
 #include "core/os/os.h"
 
 String NativeExtension::get_extension_list_config_file() {
-	return ProjectSettings::get_singleton()->get_project_data_path().plus_file("extension_list.cfg");
+	return ProjectSettings::get_singleton()->get_project_data_path().path_join("extension_list.cfg");
 }
 
 class NativeExtensionMethodBind : public MethodBind {
@@ -152,6 +152,8 @@ void NativeExtension::_register_extension_class(const GDNativeExtensionClassLibr
 	extension->native_extension.parent_class_name = parent_class_name;
 	extension->native_extension.class_name = class_name;
 	extension->native_extension.editor_class = self->level_initialized == INITIALIZATION_LEVEL_EDITOR;
+	extension->native_extension.is_virtual = p_extension_funcs->is_virtual;
+	extension->native_extension.is_abstract = p_extension_funcs->is_abstract;
 	extension->native_extension.set = p_extension_funcs->set_func;
 	extension->native_extension.get = p_extension_funcs->get_func;
 	extension->native_extension.get_property_list = p_extension_funcs->get_property_list_func;
@@ -421,7 +423,7 @@ Ref<Resource> NativeExtensionResourceLoader::load(const String &p_path, const St
 	}
 
 	if (!library_path.is_resource_file() && !library_path.is_absolute_path()) {
-		library_path = p_path.get_base_dir().plus_file(library_path);
+		library_path = p_path.get_base_dir().path_join(library_path);
 	}
 
 	Ref<NativeExtension> lib;

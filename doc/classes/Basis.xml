@@ -70,6 +70,7 @@
 			<param index="0" name="euler" type="Vector3" />
 			<param index="1" name="order" type="int" default="2" />
 			<description>
+				Constructs a pure rotation Basis matrix from Euler angles in the specified Euler rotation order. By default, use YXZ order (most common).
 			</description>
 		</method>
 		<method name="from_scale" qualifiers="static">
@@ -83,14 +84,8 @@
 			<return type="Vector3" />
 			<param index="0" name="order" type="int" default="2" />
 			<description>
-				Returns the basis's rotation in the form of Euler angles (in the YXZ convention: when decomposing, first Z, then X, and Y last). The returned vector contains the rotation angles in the format (X angle, Y angle, Z angle).
+				Returns the basis's rotation in the form of Euler angles. The Euler order depends on the [param order] parameter, by default it uses the YXZ convention: when decomposing, first Z, then X, and Y last. The returned vector contains the rotation angles in the format (X angle, Y angle, Z angle).
 				Consider using the [method get_rotation_quaternion] method instead, which returns a [Quaternion] quaternion instead of Euler angles.
-			</description>
-		</method>
-		<method name="get_orthogonal_index" qualifiers="const">
-			<return type="int" />
-			<description>
-				This function considers a discretization of rotations into 24 points on unit sphere, lying along the vectors (x,y,z) with each component being either -1, 0, or 1, and returns the index of the point best representing the orientation of the object. It is mainly used by the [GridMap] editor. For further details, refer to the Godot source code.
 			</description>
 		</method>
 		<method name="get_rotation_quaternion" qualifiers="const">
@@ -116,6 +111,12 @@
 			<param index="0" name="b" type="Basis" />
 			<description>
 				Returns [code]true[/code] if this basis and [param b] are approximately equal, by calling [code]is_equal_approx[/code] on each component.
+			</description>
+		</method>
+		<method name="is_finite" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if this basis is finite, by calling [method @GlobalScope.is_finite] on each component.
 			</description>
 		</method>
 		<method name="looking_at" qualifiers="static">
@@ -197,16 +198,22 @@
 	</members>
 	<constants>
 		<constant name="EULER_ORDER_XYZ" value="0">
+			Euler angle composing/decomposing order where X component is first, then Y, then Z.
 		</constant>
 		<constant name="EULER_ORDER_XZY" value="1">
+			Euler angle composing/decomposing order where X component is first, then Z, then Y.
 		</constant>
 		<constant name="EULER_ORDER_YXZ" value="2">
+			Euler angle composing/decomposing order where Y component is first, then X, then Z.
 		</constant>
 		<constant name="EULER_ORDER_YZX" value="3">
+			Euler angle composing/decomposing order where Y component is first, then Z, then X.
 		</constant>
 		<constant name="EULER_ORDER_ZXY" value="4">
+			Euler angle composing/decomposing order where Z component is first, then X, then Y.
 		</constant>
 		<constant name="EULER_ORDER_ZYX" value="5">
+			Euler angle composing/decomposing order where Z component is first, then Y, then X.
 		</constant>
 		<constant name="IDENTITY" value="Basis(1, 0, 0, 0, 1, 0, 0, 0, 1)">
 			The identity basis, with no rotation or scaling applied.

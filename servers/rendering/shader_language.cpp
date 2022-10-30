@@ -257,6 +257,7 @@ enum ContextFlag : uint32_t {
 	CF_UNIFORM_KEYWORD = 2048U, // "uniform"
 	CF_CONST_KEYWORD = 4096U, // "const"
 	CF_UNIFORM_QUALIFIER = 8192U, // "<x> uniform float t;"
+	CF_SHADER_TYPE = 16384U, // "shader_type"
 };
 
 const uint32_t KCF_DATATYPE = CF_BLOCK | CF_GLOBAL_SPACE | CF_DATATYPE | CF_FUNC_DECL_PARAM_TYPE | CF_UNIFORM_TYPE;
@@ -318,7 +319,7 @@ const ShaderLanguage::KeyWord ShaderLanguage::keyword_list[] = {
 	{ TK_VARYING, "varying", CF_GLOBAL_SPACE, { "particles", "sky", "fog" }, {} },
 	{ TK_CONST, "const", CF_BLOCK | CF_GLOBAL_SPACE | CF_CONST_KEYWORD, {}, {} },
 	{ TK_STRUCT, "struct", CF_GLOBAL_SPACE, {}, {} },
-	{ TK_SHADER_TYPE, "shader_type", CF_GLOBAL_SPACE, {}, {} },
+	{ TK_SHADER_TYPE, "shader_type", CF_SHADER_TYPE, {}, {} },
 	{ TK_RENDER_MODE, "render_mode", CF_GLOBAL_SPACE, {}, {} },
 
 	// uniform qualifiers
@@ -1068,7 +1069,7 @@ String ShaderLanguage::get_uniform_hint_name(ShaderNode::Uniform::Hint p_hint) {
 			result = "hint_range";
 		} break;
 		case ShaderNode::Uniform::HINT_SOURCE_COLOR: {
-			result = "hint_color";
+			result = "source_color";
 		} break;
 		case ShaderNode::Uniform::HINT_NORMAL: {
 			result = "hint_normal";
@@ -1170,6 +1171,10 @@ void ShaderLanguage::clear() {
 	last_type = IDENTIFIER_MAX;
 	current_uniform_group_name = "";
 	current_uniform_subgroup_name = "";
+	current_uniform_hint = ShaderNode::Uniform::HINT_NONE;
+	current_uniform_filter = FILTER_DEFAULT;
+	current_uniform_repeat = REPEAT_DEFAULT;
+	current_uniform_instance_index_defined = false;
 
 	completion_type = COMPLETION_NONE;
 	completion_block = nullptr;
@@ -1183,7 +1188,7 @@ void ShaderLanguage::clear() {
 	include_positions.push_back(FilePosition());
 
 #ifdef DEBUG_ENABLED
-	keyword_completion_context = CF_GLOBAL_SPACE;
+	keyword_completion_context = CF_UNSPECIFIED;
 	used_constants.clear();
 	used_varyings.clear();
 	used_uniforms.clear();
@@ -4391,8 +4396,6 @@ bool ShaderLanguage::_is_operator_assign(Operator p_op) const {
 		default:
 			return false;
 	}
-
-	return false;
 }
 
 bool ShaderLanguage::_validate_varying_assign(ShaderNode::Varying &p_varying, String *r_message) {
@@ -5339,8 +5342,8 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 				last_type = IDENTIFIER_MAX;
 				_set_tkpos(pos);
 
-				DataType data_type;
-				IdentifierType ident_type;
+				DataType data_type = TYPE_MAX;
+				IdentifierType ident_type = IDENTIFIER_MAX;
 				int array_size = 0;
 				StringName struct_name;
 				bool is_local = false;
@@ -5377,6 +5380,7 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 						}
 						_set_tkpos(prev_pos);
 
+						ShaderNode::Varying &var = shader->varyings[identifier];
 						String error;
 						if (is_token_operator_assign(next_token.type)) {
 							if (!_validate_varying_assign(shader->varyings[identifier], &error)) {
@@ -5384,8 +5388,6 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 								return nullptr;
 							}
 						} else {
-							ShaderNode::Varying &var = shader->varyings[identifier];
-
 							switch (var.stage) {
 								case ShaderNode::Varying::STAGE_VERTEX:
 									if (current_function == varying_function_names.fragment || current_function == varying_function_names.light) {
@@ -5400,6 +5402,12 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 								default:
 									break;
 							}
+						}
+
+						if ((var.stage != ShaderNode::Varying::STAGE_FRAGMENT && var.stage != ShaderNode::Varying::STAGE_FRAGMENT_TO_LIGHT) && var.type < TYPE_FLOAT && var.interpolation != INTERPOLATION_FLAT) {
+							_set_tkpos(var.tkpos);
+							_set_error(RTR("Varying with integer data type must be declared with `flat` interpolation qualifier."));
+							return nullptr;
 						}
 					}
 
@@ -7816,6 +7824,9 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 	Token next;
 
 	if (!is_shader_inc) {
+#ifdef DEBUG_ENABLED
+		keyword_completion_context = CF_SHADER_TYPE;
+#endif // DEBUG_ENABLED
 		tk = _get_token();
 
 		if (tk.type != TK_SHADER_TYPE) {
@@ -8299,8 +8310,8 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 					return ERR_PARSE_ERROR;
 				}
 
-				if (!is_uniform && (type < TYPE_FLOAT || type > TYPE_MAT4)) {
-					_set_error(RTR("Invalid type for varying, only 'float', 'vec2', 'vec3', 'vec4', 'mat2', 'mat3', 'mat4', or arrays of these types are allowed."));
+				if (!is_uniform && type > TYPE_MAT4) {
+					_set_error(RTR("Invalid data type for varying."));
 					return ERR_PARSE_ERROR;
 				}
 
@@ -8608,6 +8619,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 									}
 
 									custom_instance_index = tk.constant;
+									current_uniform_instance_index_defined = true;
 
 									if (custom_instance_index >= MAX_INSTANCE_UNIFORM_INDICES) {
 										_set_error(vformat(RTR("Allowed instance uniform indices must be within [0..%d] range."), MAX_INSTANCE_UNIFORM_INDICES - 1));
@@ -8623,12 +8635,15 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 								} break;
 								case TK_HINT_SCREEN_TEXTURE: {
 									new_hint = ShaderNode::Uniform::HINT_SCREEN_TEXTURE;
+									--texture_uniforms;
 								} break;
 								case TK_HINT_NORMAL_ROUGHNESS_TEXTURE: {
 									new_hint = ShaderNode::Uniform::HINT_NORMAL_ROUGHNESS_TEXTURE;
+									--texture_uniforms;
 								} break;
 								case TK_HINT_DEPTH_TEXTURE: {
 									new_hint = ShaderNode::Uniform::HINT_DEPTH_TEXTURE;
+									--texture_uniforms;
 								} break;
 								case TK_FILTER_NEAREST: {
 									new_filter = FILTER_NEAREST;
@@ -8673,6 +8688,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 									return ERR_PARSE_ERROR;
 								} else {
 									uniform.hint = new_hint;
+									current_uniform_hint = new_hint;
 								}
 							}
 
@@ -8686,6 +8702,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 									return ERR_PARSE_ERROR;
 								} else {
 									uniform.filter = new_filter;
+									current_uniform_filter = new_filter;
 								}
 							}
 
@@ -8699,6 +8716,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 									return ERR_PARSE_ERROR;
 								} else {
 									uniform.repeat = new_repeat;
+									current_uniform_repeat = new_repeat;
 								}
 							}
 
@@ -8766,6 +8784,11 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 					keyword_completion_context = CF_GLOBAL_SPACE;
 #endif // DEBUG_ENABLED
 					completion_type = COMPLETION_NONE;
+
+					current_uniform_hint = ShaderNode::Uniform::HINT_NONE;
+					current_uniform_filter = FILTER_DEFAULT;
+					current_uniform_repeat = REPEAT_DEFAULT;
+					current_uniform_instance_index_defined = false;
 				} else { // varying
 					ShaderNode::Varying varying;
 					varying.type = type;
@@ -10302,28 +10325,33 @@ Error ShaderLanguage::complete(const String &p_code, const ShaderCompileInfo &p_
 		} break;
 		case COMPLETION_HINT: {
 			if (completion_base == DataType::TYPE_VEC3 || completion_base == DataType::TYPE_VEC4) {
-				ScriptLanguage::CodeCompletionOption option("source_color", ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT);
-				r_options->push_back(option);
-			} else if ((completion_base == DataType::TYPE_INT || completion_base == DataType::TYPE_FLOAT) && !completion_base_array) {
-				ScriptLanguage::CodeCompletionOption option("hint_range", ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT);
-
-				if (completion_base == DataType::TYPE_INT) {
-					option.insert_text = "hint_range(0, 100, 1)";
-				} else {
-					option.insert_text = "hint_range(0.0, 1.0, 0.1)";
+				if (current_uniform_hint == ShaderNode::Uniform::HINT_NONE) {
+					ScriptLanguage::CodeCompletionOption option("source_color", ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT);
+					r_options->push_back(option);
 				}
+			} else if ((completion_base == DataType::TYPE_INT || completion_base == DataType::TYPE_FLOAT) && !completion_base_array) {
+				if (current_uniform_hint == ShaderNode::Uniform::HINT_NONE) {
+					ScriptLanguage::CodeCompletionOption option("hint_range", ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT);
 
-				r_options->push_back(option);
+					if (completion_base == DataType::TYPE_INT) {
+						option.insert_text = "hint_range(0, 100, 1)";
+					} else {
+						option.insert_text = "hint_range(0.0, 1.0, 0.1)";
+					}
+
+					r_options->push_back(option);
+				}
 			} else if ((int(completion_base) > int(TYPE_MAT4) && int(completion_base) < int(TYPE_STRUCT)) && !completion_base_array) {
-				static Vector<String> options;
-
-				if (options.is_empty()) {
+				Vector<String> options;
+				if (current_uniform_filter == FILTER_DEFAULT) {
 					options.push_back("filter_linear");
 					options.push_back("filter_linear_mipmap");
 					options.push_back("filter_linear_mipmap_anisotropic");
 					options.push_back("filter_nearest");
 					options.push_back("filter_nearest_mipmap");
 					options.push_back("filter_nearest_mipmap_anisotropic");
+				}
+				if (current_uniform_hint == ShaderNode::Uniform::HINT_NONE) {
 					options.push_back("hint_anisotropy");
 					options.push_back("hint_default_black");
 					options.push_back("hint_default_white");
@@ -10339,6 +10367,8 @@ Error ShaderLanguage::complete(const String &p_code, const ShaderCompileInfo &p_
 					options.push_back("hint_normal_roughness_texture");
 					options.push_back("hint_depth_texture");
 					options.push_back("source_color");
+				}
+				if (current_uniform_repeat == REPEAT_DEFAULT) {
 					options.push_back("repeat_enable");
 					options.push_back("repeat_disable");
 				}
@@ -10348,7 +10378,7 @@ Error ShaderLanguage::complete(const String &p_code, const ShaderCompileInfo &p_
 					r_options->push_back(option);
 				}
 			}
-			if (!completion_base_array) {
+			if (!completion_base_array && !current_uniform_instance_index_defined) {
 				ScriptLanguage::CodeCompletionOption option("instance_index", ScriptLanguage::CODE_COMPLETION_KIND_PLAIN_TEXT);
 				option.insert_text = "instance_index(0)";
 				r_options->push_back(option);

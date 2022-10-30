@@ -41,7 +41,7 @@
 #include "editor/editor_settings.h"
 
 bool EditorResourcePreviewGenerator::handles(const String &p_type) const {
-	bool success;
+	bool success = false;
 	if (GDVIRTUAL_CALL(_handles, p_type, success)) {
 		return success;
 	}
@@ -70,7 +70,7 @@ Ref<Texture2D> EditorResourcePreviewGenerator::generate_from_path(const String &
 }
 
 bool EditorResourcePreviewGenerator::generate_small_preview_automatically() const {
-	bool success;
+	bool success = false;
 	if (GDVIRTUAL_CALL(_generate_small_preview_automatically, success)) {
 		return success;
 	}
@@ -79,7 +79,7 @@ bool EditorResourcePreviewGenerator::generate_small_preview_automatically() cons
 }
 
 bool EditorResourcePreviewGenerator::can_generate_small_preview() const {
-	bool success;
+	bool success = false;
 	if (GDVIRTUAL_CALL(_can_generate_small_preview, success)) {
 		return success;
 	}
@@ -244,7 +244,7 @@ void EditorResourcePreview::_iterate() {
 			} else {
 				String temp_path = EditorPaths::get_singleton()->get_cache_dir();
 				String cache_base = ProjectSettings::get_singleton()->globalize_path(item.path).md5_text();
-				cache_base = temp_path.plus_file("resthumb-" + cache_base);
+				cache_base = temp_path.path_join("resthumb-" + cache_base);
 
 				//does not have it, try to load a cached thumbnail
 

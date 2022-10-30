@@ -76,14 +76,14 @@ bool EditorSettings::_set_only(const StringName &p_name, const Variant &p_value)
 		Array arr = p_value;
 		for (int i = 0; i < arr.size(); i++) {
 			Dictionary dict = arr[i];
-			String name = dict["name"];
+			String shortcut_name = dict["name"];
 
 			Array shortcut_events = dict["shortcuts"];
 
 			Ref<Shortcut> sc;
 			sc.instantiate();
 			sc->set_events(shortcut_events);
-			add_shortcut(name, sc);
+			add_shortcut(shortcut_name, sc);
 		}
 
 		return false;
@@ -92,16 +92,16 @@ bool EditorSettings::_set_only(const StringName &p_name, const Variant &p_value)
 		for (int i = 0; i < actions_arr.size(); i++) {
 			Dictionary action_dict = actions_arr[i];
 
-			String name = action_dict["name"];
+			String action_name = action_dict["name"];
 			Array events = action_dict["events"];
 
 			InputMap *im = InputMap::get_singleton();
-			im->action_erase_events(name);
+			im->action_erase_events(action_name);
 
-			builtin_action_overrides[name].clear();
+			builtin_action_overrides[action_name].clear();
 			for (int ev_idx = 0; ev_idx < events.size(); ev_idx++) {
-				im->action_add_event(name, events[ev_idx]);
-				builtin_action_overrides[name].push_back(events[ev_idx]);
+				im->action_add_event(action_name, events[ev_idx]);
+				builtin_action_overrides[action_name].push_back(events[ev_idx]);
 			}
 		}
 		return false;
@@ -407,6 +407,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	set_restart_if_changed("interface/editor/debug/enable_pseudolocalization", true);
 	// Use pseudolocalization in editor.
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/use_embedded_menu", false, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
+	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/expand_to_title", true, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 
 	EDITOR_SETTING_USAGE(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/editor/custom_display_scale", 1.0, "0.5,3,0.01", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/main_font_size", 14, "8,48,1")
@@ -414,7 +415,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/code_font_contextual_ligatures", 0, "Default,Disable Contextual Alternates (Coding Ligatures),Use Custom OpenType Feature Set")
 	_initial_set("interface/editor/code_font_custom_opentype_features", "");
 	_initial_set("interface/editor/code_font_custom_variations", "");
-	_initial_set("interface/editor/font_antialiased", true);
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/font_antialiasing", 1, "None,Grayscale,LCD sub-pixel")
 #ifdef MACOS_ENABLED
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/font_hinting", 0, "Auto (None),None,Light,Normal")
 #else
@@ -437,6 +438,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/single_window_mode", false, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 	_initial_set("interface/editor/mouse_extra_buttons_navigate_history", true);
 	_initial_set("interface/editor/save_each_scene_on_quit", true); // Regression
+	EDITOR_SETTING_USAGE(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/accept_dialog_cancel_ok_buttons", 0,
+			vformat("Auto (%s),Cancel First,OK First", DisplayServer::get_singleton()->get_swap_cancel_ok() ? "OK First" : "Cancel First"),
+			PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
 #ifdef DEV_ENABLED
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/show_internal_errors_in_toast_notifications", 0, "Auto (Enabled),Enabled,Disabled")
 #else
@@ -509,7 +513,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	// Appearance: Caret
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "text_editor/appearance/caret/type", 0, "Line,Block")
 	_initial_set("text_editor/appearance/caret/caret_blink", true);
-	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "text_editor/appearance/caret/caret_blink_speed", 0.5, "0.1,10,0.01")
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "text_editor/appearance/caret/caret_blink_interval", 0.5, "0.1,10,0.01")
 	_initial_set("text_editor/appearance/caret/highlight_current_line", true);
 	_initial_set("text_editor/appearance/caret/highlight_all_occurrences", true);
 
@@ -716,7 +720,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "network/debug/remote_port", 6007, "1,65535,1")
 
 	// SSL
-	EDITOR_SETTING_USAGE(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "network/ssl/editor_ssl_certificates", _SYSTEM_CERTS_PATH, "*.crt,*.pem", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
+	EDITOR_SETTING_USAGE(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "network/tls/editor_tls_certificates", _SYSTEM_CERTS_PATH, "*.crt,*.pem", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
 
 	// Profiler
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "debugger/profiler_frame_history_size", 3600, "60,10000,1")
@@ -734,8 +738,8 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 		if (p_extra_config->has_section("init_projects") && p_extra_config->has_section_key("init_projects", "list")) {
 			Vector<String> list = p_extra_config->get_value("init_projects", "list");
 			for (int i = 0; i < list.size(); i++) {
-				String name = list[i].replace("/", "::");
-				set("projects/" + name, list[i]);
+				String proj_name = list[i].replace("/", "::");
+				set("projects/" + proj_name, list[i]);
 			}
 		}
 
@@ -855,7 +859,7 @@ void EditorSettings::create() {
 		// Validate editor config file.
 		Ref<DirAccess> dir = DirAccess::open(EditorPaths::get_singleton()->get_config_dir());
 		String config_file_name = "editor_settings-" + itos(VERSION_MAJOR) + ".tres";
-		config_file_path = EditorPaths::get_singleton()->get_config_dir().plus_file(config_file_name);
+		config_file_path = EditorPaths::get_singleton()->get_config_dir().path_join(config_file_name);
 		if (!dir->file_exists(config_file_name)) {
 			goto fail;
 		}
@@ -886,7 +890,7 @@ fail:
 	if (extra_config->has_section("init_projects")) {
 		Vector<String> list = extra_config->get_value("init_projects", "list");
 		for (int i = 0; i < list.size(); i++) {
-			list.write[i] = exe_path.plus_file(list[i]);
+			list.write[i] = exe_path.path_join(list[i]);
 		}
 		extra_config->set_value("init_projects", "list", list);
 	}
@@ -963,8 +967,8 @@ void EditorSettings::save() {
 	}
 }
 
-Array EditorSettings::get_changed_settings() const {
-	Array arr;
+PackedStringArray EditorSettings::get_changed_settings() const {
+	PackedStringArray arr;
 	for (const String &setting : changed_settings) {
 		arr.push_back(setting);
 	}
@@ -1105,7 +1109,7 @@ void EditorSettings::add_property_hint(const PropertyInfo &p_hint) {
 
 void EditorSettings::set_project_metadata(const String &p_section, const String &p_key, Variant p_data) {
 	Ref<ConfigFile> cf = memnew(ConfigFile);
-	String path = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("project_metadata.cfg");
+	String path = EditorPaths::get_singleton()->get_project_settings_dir().path_join("project_metadata.cfg");
 	Error err;
 	err = cf->load(path);
 	ERR_FAIL_COND_MSG(err != OK && err != ERR_FILE_NOT_FOUND, "Cannot load editor settings from file '" + path + "'.");
@@ -1116,7 +1120,7 @@ void EditorSettings::set_project_metadata(const String &p_section, const String 
 
 Variant EditorSettings::get_project_metadata(const String &p_section, const String &p_key, Variant p_default) const {
 	Ref<ConfigFile> cf = memnew(ConfigFile);
-	String path = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("project_metadata.cfg");
+	String path = EditorPaths::get_singleton()->get_project_settings_dir().path_join("project_metadata.cfg");
 	Error err = cf->load(path);
 	if (err != OK) {
 		return p_default;
@@ -1128,9 +1132,9 @@ void EditorSettings::set_favorites(const Vector<String> &p_favorites) {
 	favorites = p_favorites;
 	String favorites_file;
 	if (Engine::get_singleton()->is_project_manager_hint()) {
-		favorites_file = EditorPaths::get_singleton()->get_config_dir().plus_file("favorite_dirs");
+		favorites_file = EditorPaths::get_singleton()->get_config_dir().path_join("favorite_dirs");
 	} else {
-		favorites_file = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("favorites");
+		favorites_file = EditorPaths::get_singleton()->get_project_settings_dir().path_join("favorites");
 	}
 	Ref<FileAccess> f = FileAccess::open(favorites_file, FileAccess::WRITE);
 	if (f.is_valid()) {
@@ -1148,9 +1152,9 @@ void EditorSettings::set_recent_dirs(const Vector<String> &p_recent_dirs) {
 	recent_dirs = p_recent_dirs;
 	String recent_dirs_file;
 	if (Engine::get_singleton()->is_project_manager_hint()) {
-		recent_dirs_file = EditorPaths::get_singleton()->get_config_dir().plus_file("recent_dirs");
+		recent_dirs_file = EditorPaths::get_singleton()->get_config_dir().path_join("recent_dirs");
 	} else {
-		recent_dirs_file = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("recent_dirs");
+		recent_dirs_file = EditorPaths::get_singleton()->get_project_settings_dir().path_join("recent_dirs");
 	}
 	Ref<FileAccess> f = FileAccess::open(recent_dirs_file, FileAccess::WRITE);
 	if (f.is_valid()) {
@@ -1168,11 +1172,11 @@ void EditorSettings::load_favorites_and_recent_dirs() {
 	String favorites_file;
 	String recent_dirs_file;
 	if (Engine::get_singleton()->is_project_manager_hint()) {
-		favorites_file = EditorPaths::get_singleton()->get_config_dir().plus_file("favorite_dirs");
-		recent_dirs_file = EditorPaths::get_singleton()->get_config_dir().plus_file("recent_dirs");
+		favorites_file = EditorPaths::get_singleton()->get_config_dir().path_join("favorite_dirs");
+		recent_dirs_file = EditorPaths::get_singleton()->get_config_dir().path_join("recent_dirs");
 	} else {
-		favorites_file = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("favorites");
-		recent_dirs_file = EditorPaths::get_singleton()->get_project_settings_dir().plus_file("recent_dirs");
+		favorites_file = EditorPaths::get_singleton()->get_project_settings_dir().path_join("favorites");
+		recent_dirs_file = EditorPaths::get_singleton()->get_project_settings_dir().path_join("recent_dirs");
 	}
 	Ref<FileAccess> f = FileAccess::open(favorites_file, FileAccess::READ);
 	if (f.is_valid()) {
@@ -1235,7 +1239,7 @@ void EditorSettings::load_text_editor_theme() {
 		return; // sorry for "Settings changed" console spam
 	}
 
-	String theme_path = EditorPaths::get_singleton()->get_text_editor_themes_dir().plus_file(p_file + ".tet");
+	String theme_path = EditorPaths::get_singleton()->get_text_editor_themes_dir().path_join(p_file + ".tet");
 
 	Ref<ConfigFile> cf = memnew(ConfigFile);
 	Error err = cf->load(theme_path);
@@ -1272,7 +1276,7 @@ bool EditorSettings::import_text_editor_theme(String p_file) {
 
 		Ref<DirAccess> d = DirAccess::open(EditorPaths::get_singleton()->get_text_editor_themes_dir());
 		if (d.is_valid()) {
-			d->copy(p_file, EditorPaths::get_singleton()->get_text_editor_themes_dir().plus_file(p_file.get_file()));
+			d->copy(p_file, EditorPaths::get_singleton()->get_text_editor_themes_dir().path_join(p_file.get_file()));
 			return true;
 		}
 	}
@@ -1285,7 +1289,7 @@ bool EditorSettings::save_text_editor_theme() {
 	if (_is_default_text_editor_theme(p_file.get_file().to_lower())) {
 		return false;
 	}
-	String theme_path = EditorPaths::get_singleton()->get_text_editor_themes_dir().plus_file(p_file + ".tet");
+	String theme_path = EditorPaths::get_singleton()->get_text_editor_themes_dir().path_join(p_file + ".tet");
 	return _save_text_editor_theme(theme_path);
 }
 
@@ -1338,7 +1342,7 @@ Vector<String> EditorSettings::get_script_templates(const String &p_extension, c
 }
 
 String EditorSettings::get_editor_layouts_config() const {
-	return EditorPaths::get_singleton()->get_config_dir().plus_file("editor_layouts.cfg");
+	return EditorPaths::get_singleton()->get_config_dir().path_join("editor_layouts.cfg");
 }
 
 float EditorSettings::get_auto_display_scale() const {
@@ -1466,9 +1470,10 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 #ifdef MACOS_ENABLED
 		// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
 		if (keycode == Key::KEY_DELETE) {
-			keycode = KeyModifierMask::CMD | Key::BACKSPACE;
+			keycode = KeyModifierMask::META | Key::BACKSPACE;
 		}
 #endif
+
 		Ref<InputEventKey> ie;
 		if (keycode != Key::NONE) {
 			ie = InputEventKey::create_reference(keycode);
@@ -1476,8 +1481,11 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 		}
 	}
 
-	// Directly override the existing shortcut.
-	sc->set_events(events);
+	// Override the existing shortcut only if it wasn't customized by the user (i.e. still "original").
+	if (Shortcut::is_event_array_equal(sc->get_events(), sc->get_meta("original"))) {
+		sc->set_events(events);
+	}
+
 	sc->set_meta("original", events.duplicate(true));
 }
 
@@ -1496,7 +1504,7 @@ Ref<Shortcut> ED_SHORTCUT_ARRAY(const String &p_path, const String &p_name, cons
 #ifdef MACOS_ENABLED
 		// Use Cmd+Backspace as a general replacement for Delete shortcuts on macOS
 		if (keycode == Key::KEY_DELETE) {
-			keycode = KeyModifierMask::CMD | Key::BACKSPACE;
+			keycode = KeyModifierMask::META | Key::BACKSPACE;
 		}
 #endif
 
@@ -1532,7 +1540,7 @@ Ref<Shortcut> ED_SHORTCUT_ARRAY(const String &p_path, const String &p_name, cons
 	return sc;
 }
 
-void EditorSettings::set_builtin_action_override(const String &p_name, const Array &p_events) {
+void EditorSettings::set_builtin_action_override(const String &p_name, const TypedArray<InputEvent> &p_events) {
 	List<Ref<InputEvent>> event_list;
 
 	// Override the whole list, since events may have their order changed or be added, removed or edited.

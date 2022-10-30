@@ -124,11 +124,11 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 
 					} break;
 					case RS::ARRAY_NORMAL: {
-						stride += sizeof(int32_t);
+						stride += sizeof(uint16_t) * 2;
 
 					} break;
 					case RS::ARRAY_TANGENT: {
-						stride += sizeof(int32_t);
+						stride += sizeof(uint16_t) * 2;
 
 					} break;
 					case RS::ARRAY_COLOR: {
@@ -260,7 +260,7 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 		}
 		for (int i = 0; i < p_surface.bone_aabbs.size(); i++) {
 			const AABB &bone = p_surface.bone_aabbs[i];
-			if (!bone.has_no_volume()) {
+			if (bone.has_volume()) {
 				mesh->bone_aabbs.write[i].merge_with(bone);
 			}
 		}
@@ -309,12 +309,48 @@ RS::BlendShapeMode MeshStorage::mesh_get_blend_shape_mode(RID p_mesh) const {
 }
 
 void MeshStorage::mesh_surface_update_vertex_region(RID p_mesh, int p_surface, int p_offset, const Vector<uint8_t> &p_data) {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_COND(!mesh);
+	ERR_FAIL_UNSIGNED_INDEX((uint32_t)p_surface, mesh->surface_count);
+	ERR_FAIL_COND(p_data.size() == 0);
+
+	uint64_t data_size = p_data.size();
+	ERR_FAIL_COND(p_offset + data_size > mesh->surfaces[p_surface]->vertex_buffer_size);
+	const uint8_t *r = p_data.ptr();
+
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->surfaces[p_surface]->vertex_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, p_offset, data_size, r);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void MeshStorage::mesh_surface_update_attribute_region(RID p_mesh, int p_surface, int p_offset, const Vector<uint8_t> &p_data) {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_COND(!mesh);
+	ERR_FAIL_UNSIGNED_INDEX((uint32_t)p_surface, mesh->surface_count);
+	ERR_FAIL_COND(p_data.size() == 0);
+
+	uint64_t data_size = p_data.size();
+	ERR_FAIL_COND(p_offset + data_size > mesh->surfaces[p_surface]->attribute_buffer_size);
+	const uint8_t *r = p_data.ptr();
+
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->surfaces[p_surface]->attribute_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, p_offset, data_size, r);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void MeshStorage::mesh_surface_update_skin_region(RID p_mesh, int p_surface, int p_offset, const Vector<uint8_t> &p_data) {
+	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
+	ERR_FAIL_COND(!mesh);
+	ERR_FAIL_UNSIGNED_INDEX((uint32_t)p_surface, mesh->surface_count);
+	ERR_FAIL_COND(p_data.size() == 0);
+
+	uint64_t data_size = p_data.size();
+	ERR_FAIL_COND(p_offset + data_size > mesh->surfaces[p_surface]->skin_buffer_size);
+	const uint8_t *r = p_data.ptr();
+
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->surfaces[p_surface]->skin_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, p_offset, data_size, r);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void MeshStorage::mesh_surface_set_material(RID p_mesh, int p_surface, RID p_material) {
@@ -350,6 +386,10 @@ RS::SurfaceData MeshStorage::mesh_get_surface(RID p_mesh, int p_surface) const {
 
 	if (s.attribute_buffer != 0) {
 		sd.attribute_data = Utilities::buffer_get_data(GL_ARRAY_BUFFER, s.attribute_buffer, s.attribute_buffer_size);
+	}
+
+	if (s.skin_buffer != 0) {
+		sd.skin_data = Utilities::buffer_get_data(GL_ARRAY_BUFFER, s.skin_buffer, s.skin_buffer_size);
 	}
 
 	sd.vertex_count = s.vertex_count;
@@ -550,6 +590,21 @@ void MeshStorage::mesh_clear(RID p_mesh) {
 			glDeleteBuffers(1, &s.index_buffer);
 			s.index_buffer = 0;
 		}
+
+		if (s.versions) {
+			memfree(s.versions); //reallocs, so free with memfree.
+		}
+
+		if (s.lod_count) {
+			for (uint32_t j = 0; j < s.lod_count; j++) {
+				if (s.lods[j].index_buffer != 0) {
+					glDeleteBuffers(1, &s.lods[j].index_buffer);
+					s.lods[j].index_buffer = 0;
+				}
+			}
+			memdelete_arr(s.lods);
+		}
+
 		memdelete(mesh->surfaces[i]);
 	}
 	if (mesh->surfaces) {
@@ -604,17 +659,16 @@ void MeshStorage::_mesh_surface_generate_version_for_input_mask(Mesh::Surface::V
 			} break;
 			case RS::ARRAY_NORMAL: {
 				attribs[i].offset = vertex_stride;
-				// Will need to change to accommodate octahedral compression
-				attribs[i].size = 4;
-				attribs[i].type = GL_UNSIGNED_INT_2_10_10_10_REV;
-				vertex_stride += sizeof(float);
+				attribs[i].size = 2;
+				attribs[i].type = GL_UNSIGNED_SHORT;
+				vertex_stride += sizeof(uint16_t) * 2;
 				attribs[i].normalized = GL_TRUE;
 			} break;
 			case RS::ARRAY_TANGENT: {
 				attribs[i].offset = vertex_stride;
-				attribs[i].size = 4;
-				attribs[i].type = GL_UNSIGNED_INT_2_10_10_10_REV;
-				vertex_stride += sizeof(float);
+				attribs[i].size = 2;
+				attribs[i].type = GL_UNSIGNED_SHORT;
+				vertex_stride += sizeof(uint16_t) * 2;
 				attribs[i].normalized = GL_TRUE;
 			} break;
 			case RS::ARRAY_COLOR: {

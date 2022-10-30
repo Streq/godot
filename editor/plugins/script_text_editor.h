@@ -79,7 +79,6 @@ class ScriptTextEditor : public ScriptEditorBase {
 	PopupMenu *breakpoints_menu = nullptr;
 	PopupMenu *highlighter_menu = nullptr;
 	PopupMenu *context_menu = nullptr;
-	PopupMenu *convert_case = nullptr;
 
 	GotoLineDialog *goto_line_dialog = nullptr;
 	ScriptEditorQuickOpen *quick_open = nullptr;
@@ -117,8 +116,8 @@ class ScriptTextEditor : public ScriptEditorBase {
 		EDIT_TOGGLE_COMMENT,
 		EDIT_MOVE_LINE_UP,
 		EDIT_MOVE_LINE_DOWN,
-		EDIT_INDENT_RIGHT,
-		EDIT_INDENT_LEFT,
+		EDIT_INDENT,
+		EDIT_UNINDENT,
 		EDIT_DELETE_LINE,
 		EDIT_DUPLICATE_SELECTION,
 		EDIT_PICK_COLOR,
@@ -215,6 +214,7 @@ public:
 	virtual bool is_unsaved() override;
 	virtual Variant get_edit_state() override;
 	virtual void set_edit_state(const Variant &p_state) override;
+	virtual Variant get_navigation_state() override;
 	virtual void ensure_focus() override;
 	virtual void trim_trailing_whitespace() override;
 	virtual void insert_final_newline() override;
@@ -229,7 +229,7 @@ public:
 	virtual void clear_executing_line() override;
 
 	virtual void reload(bool p_soft) override;
-	virtual Array get_breakpoints() override;
+	virtual PackedInt32Array get_breakpoints() override;
 	virtual void set_breakpoint(int p_line, bool p_enabled) override;
 	virtual void clear_breakpoints() override;
 

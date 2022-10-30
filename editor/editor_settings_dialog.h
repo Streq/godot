@@ -40,6 +40,8 @@
 #include "scene/gui/tab_container.h"
 #include "scene/gui/texture_rect.h"
 
+class EditorUndoRedoManager;
+
 class EditorSettingsDialog : public AcceptDialog {
 	GDCLASS(EditorSettingsDialog, AcceptDialog);
 
@@ -51,6 +53,7 @@ class EditorSettingsDialog : public AcceptDialog {
 
 	LineEdit *search_box = nullptr;
 	LineEdit *shortcut_search_box = nullptr;
+	EventListenerLineEdit *shortcut_search_by_event = nullptr;
 	SectionedInspector *inspector = nullptr;
 
 	// Shortcuts
@@ -62,7 +65,6 @@ class EditorSettingsDialog : public AcceptDialog {
 	};
 
 	Tree *shortcuts = nullptr;
-	String shortcut_filter;
 
 	InputEventConfigurationDialog *shortcut_editor = nullptr;
 
@@ -73,7 +75,7 @@ class EditorSettingsDialog : public AcceptDialog {
 
 	Timer *timer = nullptr;
 
-	UndoRedo *undo_redo = nullptr;
+	Ref<EditorUndoRedoManager> undo_redo;
 
 	virtual void cancel_pressed() override;
 	virtual void ok_pressed() override;
@@ -101,12 +103,12 @@ class EditorSettingsDialog : public AcceptDialog {
 	void _focus_current_search_box();
 
 	void _filter_shortcuts(const String &p_filter);
+	void _filter_shortcuts_by_event(const Ref<InputEvent> &p_event);
+	bool _should_display_shortcut(const String &p_name, const Array &p_events) const;
 
 	void _update_shortcuts();
 	void _shortcut_button_pressed(Object *p_item, int p_column, int p_idx, MouseButton p_button = MouseButton::LEFT);
 	void _shortcut_cell_double_clicked();
-
-	void _builtin_action_popup_index_pressed(int p_index);
 
 	static void _undo_redo_callback(void *p_self, const String &p_name);
 

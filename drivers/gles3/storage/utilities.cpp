@@ -82,6 +82,8 @@ RS::InstanceType Utilities::get_base_type(RID p_rid) const {
 		return RS::INSTANCE_MULTIMESH;
 	} else if (GLES3::LightStorage::get_singleton()->owns_light(p_rid)) {
 		return RS::INSTANCE_LIGHT;
+	} else if (GLES3::LightStorage::get_singleton()->owns_lightmap(p_rid)) {
+		return RS::INSTANCE_LIGHTMAP;
 	}
 	return RS::INSTANCE_NONE;
 }
@@ -113,6 +115,9 @@ bool Utilities::free(RID p_rid) {
 		return true;
 	} else if (GLES3::LightStorage::get_singleton()->owns_light(p_rid)) {
 		GLES3::LightStorage::get_singleton()->light_free(p_rid);
+		return true;
+	} else if (GLES3::LightStorage::get_singleton()->owns_lightmap(p_rid)) {
+		GLES3::LightStorage::get_singleton()->lightmap_free(p_rid);
 		return true;
 	} else {
 		return false;
@@ -297,6 +302,7 @@ void Utilities::update_dirty_resources() {
 	MaterialStorage::get_singleton()->_update_queued_materials();
 	//MeshStorage::get_singleton()->_update_dirty_skeletons();
 	MeshStorage::get_singleton()->_update_dirty_multimeshes();
+	TextureStorage::get_singleton()->update_texture_atlas();
 }
 
 void Utilities::set_debug_generate_wireframes(bool p_generate) {
@@ -348,6 +354,15 @@ RenderingDevice::DeviceType Utilities::get_video_adapter_type() const {
 
 String Utilities::get_video_adapter_api_version() const {
 	return (const char *)glGetString(GL_VERSION);
+}
+
+Size2i Utilities::get_maximum_viewport_size() const {
+	Config *config = Config::get_singleton();
+	if (!config) {
+		return Size2i();
+	}
+
+	return Size2i(config->max_viewport_size, config->max_viewport_size);
 }
 
 #endif // GLES3_ENABLED

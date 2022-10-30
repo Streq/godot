@@ -71,8 +71,8 @@ public:
 	};
 
 private:
-	// For the sake of ease of use, Node3D can operate with Transforms (Basis+Origin), Quaterinon/Scale and Euler Rotation/Scale.
-	// Transform and Quaterinon are stored in data.local_transform Basis (so quaternion is not really stored, but converted back/forth from 3x3 matrix on demand).
+	// For the sake of ease of use, Node3D can operate with Transforms (Basis+Origin), Quaternion/Scale and Euler Rotation/Scale.
+	// Transform and Quaternion are stored in data.local_transform Basis (so quaternion is not really stored, but converted back/forth from 3x3 matrix on demand).
 	// Euler needs to be kept separate because converting to Basis and back may result in a different vector (which is troublesome for users
 	// editing in the inspector, not only because of the numerical precision loss but because they expect these rotations to be consistent, or support
 	// "redundant" rotations for animation interpolation, like going from 0 to 720 degrees).
@@ -96,6 +96,7 @@ private:
 
 	mutable SelfList<Node> xform_change;
 
+	// This Data struct is to avoid namespace pollution in derived classes.
 	struct Data {
 		mutable Transform3D global_transform;
 		mutable Transform3D local_transform;
@@ -155,7 +156,7 @@ protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 
-	virtual void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 
 	bool _property_can_revert(const StringName &p_name) const;
 	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
@@ -216,7 +217,7 @@ public:
 	void set_subgizmo_selection(Ref<Node3DGizmo> p_gizmo, int p_id, Transform3D p_transform = Transform3D());
 	void clear_subgizmo_selection();
 	Vector<Ref<Node3DGizmo>> get_gizmos() const;
-	Array get_gizmos_bind() const;
+	TypedArray<Node3DGizmo> get_gizmos_bind() const;
 	void add_gizmo(Ref<Node3DGizmo> p_gizmo);
 	void remove_gizmo(Ref<Node3DGizmo> p_gizmo);
 	void clear_gizmos();
